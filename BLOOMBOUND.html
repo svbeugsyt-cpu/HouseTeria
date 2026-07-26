@@ -1,0 +1,2611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Bloombound</title>
+<style>
+  :root{
+    --ink:#1f3b2c;
+    --paper:#fff9ec;
+    --gold:#ffd23f;
+    --coral:#ff7a59;
+    --leaf:#6fcf5a;
+    --sky:#4fb3e8;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+  html,body{height:100%;overflow:hidden;font-family:'Segoe UI',Verdana,Arial,sans-serif;background:#0a1a12;}
+  #app{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100%;height:100%;max-width:520px;margin:0 auto;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.5);}
+  canvas{display:block;width:100%;height:100%;touch-action:none;}
+
+  /* ---------- HUD ---------- */
+  #hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+       padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 0;pointer-events:none;z-index:5;}
+  .pill{background:rgba(255,255,255,.88);backdrop-filter:blur(6px);border:2px solid var(--ink);border-radius:99px;
+        padding:5px 12px;font-weight:800;box-shadow:0 3px 0 rgba(31,59,44,.5);color:var(--ink);font-size:13px;
+        display:flex;align-items:center;gap:5px;}
+  .pill .ico{font-size:14px;}
+  #comboBadge{position:absolute;top:60px;left:50%;transform:translateX(-50%);
+      background:linear-gradient(135deg,#ffd23f,#ff9f43);color:#3b2400;font-weight:900;font-size:13px;
+      padding:4px 14px;border-radius:99px;border:2px solid var(--ink);box-shadow:0 3px 0 rgba(31,59,44,.5);
+      opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:5;}
+  #comboBadge.show{opacity:1;}
+  #pauseBtn{position:absolute;top:calc(env(safe-area-inset-top,0px) + 8px);left:14px;pointer-events:auto;
+      width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.88);border:2px solid var(--ink);
+      display:none;align-items:center;justify-content:center;font-size:15px;box-shadow:0 3px 0 rgba(31,59,44,.5);
+      z-index:6;cursor:pointer;}
+  #pauseBtn.show{display:flex;}
+  #powerHud{position:absolute;top:calc(env(safe-area-inset-top,0px) + 52px);right:14px;display:flex;
+      flex-direction:column;gap:4px;pointer-events:none;z-index:5;}
+  .pwPill{background:rgba(255,255,255,.85);border:2px solid var(--ink);border-radius:99px;padding:3px 10px;
+      font-size:11px;font-weight:900;color:var(--ink);display:flex;align-items:center;gap:4px;
+      box-shadow:0 2px 0 rgba(31,59,44,.4);}
+  .pwPill .pwBar{width:36px;height:5px;border-radius:99px;background:rgba(0,0,0,.15);overflow:hidden;}
+  .pwPill .pwBar i{display:block;height:100%;border-radius:99px;transition:width .2s;}
+  #biomeToast{position:absolute;top:38%;left:50%;transform:translateX(-50%);
+      background:rgba(20,40,28,.85);color:#eafff0;font-weight:900;font-size:.85rem;padding:8px 20px;
+      border-radius:99px;border:2px solid rgba(255,255,255,.25);opacity:0;transition:opacity .4s;
+      pointer-events:none;z-index:7;white-space:nowrap;}
+  #biomeToast.show{opacity:1;}
+
+  /* ---------- Screens ---------- */
+  .screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+      gap:12px;padding:22px 18px;z-index:10;text-align:center;
+      background:linear-gradient(180deg,rgba(10,26,18,.6),rgba(10,26,18,.88));backdrop-filter:blur(3px);}
+  .screen.active{display:flex;}
+  .panel{background:rgba(255,252,240,.96);border:3px solid var(--ink);border-radius:22px;padding:20px 18px;
+      width:100%;max-width:340px;box-shadow:0 10px 0 rgba(0,0,0,.35);max-height:84vh;overflow-y:auto;
+      scrollbar-width:thin;}
+  .logo{font-size:2.4rem;font-weight:900;letter-spacing:.5px;
+      background:linear-gradient(180deg,#c9f28e,#6fcf5a);-webkit-background-clip:text;background-clip:text;color:transparent;
+      filter:drop-shadow(2px 3px 0 rgba(20,50,20,.9));animation:logoFloat 3s ease-in-out infinite;}
+  @keyframes logoFloat{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-6px) rotate(1deg)}}
+  .tagline{color:#eafff0;font-weight:700;font-size:.78rem;opacity:.9;max-width:280px;margin-bottom:2px;}
+  h2.title{font-size:1.2rem;color:var(--ink);margin-bottom:8px;font-weight:900;}
+  .btn{display:flex;align-items:center;justify-content:center;gap:7px;font-size:.95rem;font-weight:900;color:#fff;
+      background:var(--coral);border:3px solid var(--ink);border-radius:16px;padding:11px 16px;width:100%;
+      box-shadow:0 5px 0 rgba(31,59,44,.6);cursor:pointer;margin-top:7px;transition:transform .05s;}
+  .btn:active{transform:translateY(4px);box-shadow:0 1px 0 rgba(31,59,44,.6);}
+  .btn.leaf{background:var(--leaf);}
+  .btn.sky{background:var(--sky);}
+  .btn.plain{background:#efe6d0;color:var(--ink);}
+  .btn.gold{background:linear-gradient(135deg,#ffd23f,#ffb347);color:#3b2400;}
+  .btn.small{font-size:.78rem;padding:8px 10px;width:auto;box-shadow:0 3px 0 rgba(31,59,44,.6);}
+  .btn:disabled{opacity:.45;cursor:default;transform:none!important;}
+  .row{display:flex;gap:7px;width:100%;}
+  .row .btn{flex:1;}
+  .statline{display:flex;justify-content:space-between;width:100%;font-weight:800;color:var(--ink);
+      font-size:.85rem;padding:5px 2px;border-bottom:1px dashed rgba(31,59,44,.2);}
+  .closeX{position:absolute;top:8px;right:12px;font-size:1.2rem;font-weight:900;color:var(--ink);
+      cursor:pointer;background:none;border:none;z-index:2;}
+
+  /* Menu extras */
+  #menuSproutCv{width:90px;height:80px;margin:0 auto 4px;display:block;}
+  .xpWrap{width:100%;margin:4px 0 6px;}
+  .xpLabel{display:flex;justify-content:space-between;font-size:.65rem;font-weight:900;color:var(--ink);margin-bottom:2px;}
+  .xpBar{width:100%;height:10px;border-radius:99px;background:rgba(31,59,44,.15);border:2px solid var(--ink);overflow:hidden;}
+  .xpBar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#6fcf5a,#c9f28e);transition:width .5s;}
+  .dailyTeaser{background:linear-gradient(135deg,#fff8dc,#ffefd5);border:2px solid var(--ink);border-radius:12px;
+      padding:8px 12px;margin-top:8px;font-size:.72rem;font-weight:800;color:var(--ink);cursor:pointer;
+      box-shadow:0 2px 0 rgba(31,59,44,.4);text-align:left;}
+  .dailyTeaser b{display:block;font-size:.78rem;}
+  .collCount{font-size:.65rem;font-weight:800;color:#6b6250;margin-top:4px;}
+
+  /* Shop */
+  .shopTabs{display:flex;gap:6px;margin-bottom:8px;}
+  .shopTab{flex:1;padding:7px 4px;text-align:center;border-radius:12px;font-weight:900;font-size:.75rem;cursor:pointer;
+      background:rgba(31,59,44,.1);border:2px solid var(--ink);color:var(--ink);transition:all .15s;}
+  .shopTab.on{background:var(--leaf);color:#fff;}
+  .skinGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0;}
+  .skinCard{background:#fff;border:2.5px solid var(--ink);border-radius:14px;padding:7px 3px;text-align:center;
+      box-shadow:0 3px 0 rgba(31,59,44,.5);cursor:pointer;position:relative;transition:transform .1s;}
+  .skinCard:active{transform:scale(.95);}
+  .skinCard.locked{opacity:.55;}
+  .skinCard.equipped{outline:3px solid var(--gold);}
+  .skinCard canvas{width:100%;height:50px;}
+  .skinCard .nm{font-size:.6rem;font-weight:900;color:var(--ink);margin-top:2px;}
+  .skinCard .pr{font-size:.58rem;font-weight:800;color:#b8860b;}
+  .tag{position:absolute;top:2px;right:3px;font-size:.5rem;font-weight:900;color:#fff;background:var(--leaf);
+      border-radius:6px;padding:1px 4px;}
+
+  /* Achievements */
+  .achList{display:flex;flex-direction:column;gap:7px;width:100%;margin-top:6px;}
+  .ach{display:flex;align-items:center;gap:9px;background:#fff;border:2px solid var(--ink);border-radius:12px;
+      padding:7px 9px;box-shadow:0 2px 0 rgba(31,59,44,.4);}
+  .ach.locked{opacity:.4;}
+  .ach .ic{font-size:1.2rem;}
+  .ach .txt{text-align:left;flex:1;}
+  .ach .txt b{display:block;font-size:.72rem;color:var(--ink);}
+  .ach .txt small{font-size:.6rem;color:#6b6250;}
+
+  /* Settings */
+  .settingRow{display:flex;justify-content:space-between;align-items:center;width:100%;padding:7px 2px;}
+  .settingRow b{font-size:.82rem;color:var(--ink);}
+  .toggle{width:44px;height:25px;border-radius:99px;background:#ccc;border:2px solid var(--ink);position:relative;cursor:pointer;flex:none;}
+  .toggle.on{background:var(--leaf);}
+  .toggle .knob{position:absolute;top:1px;left:1px;width:17px;height:17px;border-radius:50%;background:#fff;
+      transition:left .15s;border:2px solid var(--ink);}
+  .toggle.on .knob{left:20px;}
+  input[type=range]{width:100%;accent-color:var(--leaf);}
+
+  /* Daily */
+  .dailyRow{display:flex;align-items:center;gap:8px;background:#fff;border:2px solid var(--ink);border-radius:12px;
+      padding:8px 10px;margin-bottom:7px;box-shadow:0 2px 0 rgba(31,59,44,.4);}
+  .dailyRow .dTxt{flex:1;text-align:left;}
+  .dailyRow .dTxt b{display:block;font-size:.72rem;color:var(--ink);}
+  .dailyRow .dTxt small{font-size:.6rem;color:#6b6250;}
+  .dailyRow .dProg{width:100%;height:6px;border-radius:99px;background:rgba(31,59,44,.12);margin-top:3px;overflow:hidden;}
+  .dailyRow .dProg i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#ffd23f,#ff9f43);}
+  .dailyRow .dBtn{flex:none;}
+
+  /* Collection */
+  .collGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:8px 0;}
+  .collCard{background:#fff;border:2px solid var(--ink);border-radius:12px;padding:8px 4px;text-align:center;
+      box-shadow:0 2px 0 rgba(31,59,44,.4);}
+  .collCard.undis{opacity:.4;background:#e8e4d8;}
+  .collCard .cIc{font-size:1.4rem;}
+  .collCard .cNm{font-size:.55rem;font-weight:900;color:var(--ink);margin-top:2px;}
+  .collCard .cBi{font-size:.5rem;color:#6b6250;}
+
+  /* Stars */
+  .starsRow{display:flex;justify-content:center;gap:6px;margin:6px 0;}
+  .starsRow span{font-size:1.8rem;opacity:.2;transition:all .3s;}
+  .starsRow span.on{opacity:1;transform:scale(1.1);}
+
+  /* Tutorial overlay */
+  #tutorialOverlay{position:absolute;inset:0;z-index:15;display:none;flex-direction:column;align-items:center;
+      justify-content:center;background:rgba(8,20,14,.82);backdrop-filter:blur(4px);padding:24px 20px;text-align:center;}
+  #tutorialOverlay.active{display:flex;}
+  .tutPanel{background:rgba(255,252,240,.97);border:3px solid var(--ink);border-radius:22px;padding:26px 22px;
+      max-width:310px;width:100%;box-shadow:0 10px 0 rgba(0,0,0,.35);}
+  .tutIc{font-size:3rem;margin-bottom:8px;animation:tutBounce 1.2s ease-in-out infinite;}
+  @keyframes tutBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+  .tutTitle{font-size:1.1rem;font-weight:900;color:var(--ink);margin-bottom:6px;}
+  .tutText{font-size:.82rem;font-weight:700;color:#4a5a4e;line-height:1.4;margin-bottom:12px;}
+  .tutStep{font-size:.65rem;font-weight:900;color:#9a9484;margin-bottom:10px;}
+  .tutDots{display:flex;justify-content:center;gap:5px;margin-bottom:12px;}
+  .tutDots span{width:8px;height:8px;border-radius:50%;background:rgba(31,59,44,.2);border:1.5px solid var(--ink);}
+  .tutDots span.on{background:var(--leaf);}
+
+  #readyTap{position:absolute;bottom:70px;left:0;right:0;text-align:center;color:#fff;font-weight:900;
+      font-size:.9rem;text-shadow:2px 2px 0 rgba(0,0,0,.4);opacity:0;transition:opacity .3s;pointer-events:none;z-index:4;
+      animation:pulse 1.4s ease-in-out infinite;}
+  #readyTap.show{opacity:1;}
+  @keyframes pulse{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* ===== INTRO ===== */
+#introOverlay{
+  position:absolute; inset:0; z-index:55;
+  display:flex; justify-content:center; align-items:center;
+  background:#000;
+  opacity:0;
+  animation: introIn 1.5s ease forwards, introOut 1.5s ease 10s forwards;
+}
+@keyframes introIn{
+  from{ opacity:0; } to{ opacity:1; }
+}
+@keyframes introOut{
+  from{ opacity:1; visibility:visible; }
+  to{ opacity:0; visibility:hidden; pointer-events:none; }
+}
+#introOverlay img{
+  width:75%; max-width:380px; max-height:65vh;
+  display:block;
+}
+.intro-particles{
+  position:absolute; inset:0; z-index:54;
+  pointer-events:none; overflow:hidden;
+}
+.intro-particle{
+  position:absolute; border-radius:50%;
+  background:rgba(255,255,255,0.5);
+  animation: introFloat 18s linear infinite;
+}
+@keyframes introFloat{
+  0%  { transform:translateY(100vh) scale(1); opacity:0; }
+  10% { opacity:1; }
+  90% { opacity:1; }
+  100%{ transform:translateY(-80px) scale(0.3); opacity:0; }
+}
+/* ===== 📐 COMPACT MENU — lahat ng buttons visible ===== */
+#scrMenu{gap:6px!important;padding:12px 16px!important;}
+#scrMenu .logo{font-size:1.7rem!important;}
+#scrMenu .tagline{display:none!important;}
+#scrMenu .panel{padding:11px 14px!important;max-width:300px!important;}
+#menuSproutCv{width:72px!important;height:64px!important;margin:0 auto 2px!important;}
+#scrMenu .xpWrap{margin:2px 0 4px!important;}
+#scrMenu .xpLabel{font-size:.6rem!important;}
+#scrMenu .statline{padding:3px 2px!important;font-size:.76rem!important;}
+#scrMenu .collCount{margin-top:1px!important;font-size:.6rem!important;}
+#btnPlay{padding:10px!important;font-size:1rem!important;margin-top:6px!important;}
+#scrMenu .row{gap:5px!important;}
+#scrMenu .btn.small{padding:6px 6px!important;font-size:.7rem!important;margin-top:5px!important;}
+#scrMenu .dailyTeaser{padding:6px 10px!important;margin-top:6px!important;font-size:.66rem!important;}
+</style>
+</head>
+<body>
+<div id="app"><div id="stage">
+  <canvas id="game"></canvas>
+<div class="intro-particles" id="introParticles"></div>
+<div id="introOverlay">
+  <img src="https://i.imgur.com/TYbbkNf.png" alt="Bloombound">
+</div>
+  <div id="hud">
+    <div class="pill"><span class="ico">🏆</span><span id="hudScore">0</span></div>
+    <div class="pill"><span class="ico">💧</span><span id="hudCoins">0</span></div>
+  </div>
+  <div id="pauseBtn">⏸</div>
+  <div id="comboBadge">COMBO x1</div>
+  <div id="powerHud"></div>
+  <div id="biomeToast"></div>
+  <div id="readyTap">TAP TO RISE</div>
+
+  <!-- TUTORIAL OVERLAY -->
+  <div id="tutorialOverlay">
+    <div class="tutPanel">
+      <div class="tutIc" id="tutIc">🌱</div>
+      <div class="tutTitle" id="tutTitle">WELCOME!</div>
+      <div class="tutText" id="tutText">Tap to begin your journey.</div>
+      <div class="tutDots" id="tutDots"></div>
+      <div class="tutStep" id="tutStep">1 / 7</div>
+      <button class="btn leaf" id="tutNext">NEXT ▶</button>
+    </div>
+  </div>
+
+  <!-- MAIN MENU -->
+  <div class="screen active" id="scrMenu">
+    <div class="logo">BLOOMBOUND</div>
+    <div class="tagline"> V1.0 — BETA.</div>
+    <div class="panel" style="max-width:290px;">
+      <canvas id="menuSproutCv" width="180" height="160"></canvas>
+      <div class="xpWrap">
+        <div class="xpLabel"><span id="lvlLabel">Lv 1</span><span id="xpLabel">0 / 100 XP</span></div>
+        <div class="xpBar"><i id="xpFill" style="width:0%"></i></div>
+      </div>
+      <div class="statline"><span>🏆 Best Score</span><span id="menuBest">0</span></div>
+      <div class="statline"><span>💧 Sun Drops</span><span id="menuCoins">0</span></div>
+      <div class="collCount" id="menuColl">📖 Collection: 0 / 21</div>
+      <button class="btn leaf" id="btnPlay" style="font-size:1.1rem;padding:13px;">▶ PLAY</button>
+      <div class="row">
+        <button class="btn sky small" id="btnShop">🛍 SHOP</button>
+        <button class="btn plain small" id="btnAch">🏅 GOALS</button>
+      </div>
+      <div class="row">
+        <button class="btn gold small" id="btnDaily">📋 DAILY</button>
+        <button class="btn plain small" id="btnColl">📖 COLLECTION</button></div><div class="row"><button class="btn gold small" id="btnCauldron">🍯 CAULDRON</button>
+      </div>
+      <button class="btn plain small" id="btnSettings" style="width:100%;">⚙ SETTINGS</button>
+      <div class="dailyTeaser" id="dailyTeaser" style="display:none;">
+        <b>📋 Daily Missions</b>
+        <span id="dailyTeaserTxt">Complete missions for bonus drops!</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHOP -->
+  <div class="screen" id="scrShop">
+    <div class="panel">
+      <button class="closeX" data-close="scrShop">✕</button>
+      <h2 class="title">SPROUT SHOP</h2>
+      <div class="statline"><span>💧 Sun Drops</span><span id="shopCoins">0</span></div>
+      <div class="shopTabs">
+        <div class="shopTab on" id="tabSkins">🌱 Sprouts</div>
+        <div class="shopTab" id="tabTrails">✨ Trails</div>
+        <div class="shopTab" id="tabBoosts">🛡️ Boosts</div>
+        <div class="shopTab" id="tabThemes">🎨 Themes</div>
+      </div>
+      <div id="shopSkins"><div class="skinGrid" id="skinGrid"></div></div>
+      <div id="shopTrails" style="display:none;"><div class="skinGrid" id="trailGrid"></div></div>
+      <div id="shopBoosts" style="display:none;"><div id="boostList"></div></div>
+      <div id="shopThemes" style="display:none;"><div id="themeList"></div></div>
+      <button class="btn plain" data-close="scrShop">BACK</button>
+    </div>
+  </div>
+
+  <!-- ACHIEVEMENTS -->
+  <div class="screen" id="scrAch">
+    <div class="panel">
+      <button class="closeX" data-close="scrAch">✕</button>
+      <h2 class="title">GROWTH GOALS</h2>
+      <div class="achList" id="achList"></div>
+      <button class="btn plain" data-close="scrAch" style="margin-top:10px;">BACK</button>
+    </div>
+  </div>
+
+  <!-- DAILY MISSIONS -->
+  <div class="screen" id="scrDaily">
+    <div class="panel">
+      <button class="closeX" data-close="scrDaily">✕</button>
+      <h2 class="title">📋 DAILY MISSIONS</h2>
+      <div class="statline"><span>🔥 Streak</span><span id="dailyStreak">0 days</span></div>
+      <div id="dailyList"></div>
+      <button class="btn plain" data-close="scrDaily" style="margin-top:10px;">BACK</button>
+    </div>
+  </div>
+
+  <!-- COLLECTION -->
+  <div class="screen" id="scrColl">
+    <div class="panel">
+      <button class="closeX" data-close="scrColl">✕</button>
+      <h2 class="title">📖 FIELD GUIDE</h2>
+      <div class="statline"><span>Discovered</span><span id="collCount">0 / 21</span></div>
+      <div class="collGrid" id="collGrid"></div>
+      <button class="btn plain" data-close="scrColl" style="margin-top:8px;">BACK</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="screen" id="scrCauldron">
+    <div class="panel">
+      <button class="closeX" data-close="scrCauldron">✕</button>
+      <h2 class="title">🍯 WITCH'S CAULDRON</h2>
+      <div style="font-size:.68rem;font-weight:700;color:#6b6250;margin-bottom:8px;">Earn essences from your runs, then combine them here for coins &amp; XP!</div>
+      <div id="essenceRow" style="display:flex;justify-content:space-around;margin-bottom:10px;"></div>
+      <div id="recipeList"></div>
+      <button class="btn plain" data-close="scrCauldron" style="margin-top:10px;">BACK</button>
+    </div>
+  </div>
+
+  <div class="screen" id="scrSettings">
+    <div class="panel">
+      <button class="closeX" data-close="scrSettings">✕</button>
+      <h2 class="title">SETTINGS</h2>
+      <div class="settingRow"><b>Sound Effects</b><div class="toggle on" id="toggleSfx"><div class="knob"></div></div></div>
+      <div class="settingRow"><b>Music</b><div class="toggle on" id="toggleMusic"><div class="knob"></div></div></div>
+      <div class="settingRow"><b>8-Bit Music 🎮</b><div class="toggle" id="toggle8bit"><div class="knob"></div></div></div>
+      <div class="settingRow"><b>Screen Shake</b><div class="toggle on" id="toggleShake"><div class="knob"></div></div></div>
+      <div class="settingRow"><b>Combo Chime 🔔</b><div class="toggle on" id="toggleComboChime"><div class="knob"></div></div></div>
+      <div class="settingRow"><b>Nature Ambience 🌊</b><div class="toggle on" id="toggleAmbience"><div class="knob"></div></div></div>
+      <div class="settingRow" style="flex-direction:column;align-items:flex-start;gap:4px;">
+        <b>Volume</b><input type="range" id="volSlider" min="0" max="100" value="70">
+      </div>
+      <button class="btn sky small" id="btnTutReplay" style="width:100%;margin-top:10px;">🎓 REPLAY TUTORIAL</button>
+      <button class="btn plain" id="btnReset" style="margin-top:7px;">🗑 RESET PROGRESS</button>
+      <button class="btn plain" data-close="scrSettings" style="margin-top:7px;">BACK</button>
+    </div>
+  </div>
+
+  <!-- PAUSE -->
+  <div class="screen" id="scrPause">
+    <div class="panel" style="max-width:280px;">
+      <h2 class="title">PAUSED</h2>
+      <button class="btn leaf" id="btnResume">▶ RESUME</button>
+      <button class="btn sky" id="btnRestartP">↻ RESTART</button>
+      <button class="btn plain" id="btnQuitP">🏠 MAIN MENU</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="screen" id="scrOver">
+    <div class="panel" style="max-width:300px;">
+      <h2 class="title" id="overTitle">WILTED...</h2>
+      <div class="starsRow" id="overStars"><span>⭐</span><span>⭐</span><span>⭐</span></div>
+      <div class="statline"><span>Score</span><span id="overScore">0</span></div>
+      <div class="statline"><span>Best</span><span id="overBest">0</span></div>
+      <div class="statline"><span>Sun Drops Earned</span><span id="overCoins">0</span></div>
+      <div class="statline"><span>XP Earned</span><span id="overXp">+0</span></div>
+      <button class="btn leaf" id="btnRetryO">↻ TRY AGAIN</button>
+      <button class="btn plain" id="btnMenuO">🏠 MAIN MENU</button>
+    </div>
+  </div>
+
+</div></div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   1. AUDIO ENGINE — fully synthesized, richer music + SFX
+========================================================= */
+var Audio_ = (function(){
+  var ctx = null;
+  function ac(){
+    if (!ctx){ try{ ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ ctx=null; } }
+    return ctx;
+  }
+  function unlock(){ var c=ac(); if(c&&c.state==='suspended') c.resume(); }
+  var musicTimer=null, musicTimer2=null, musicTimer3=null;
+
+  function tone(opts){
+    if(!Save.data.settings.sfx && !opts.forceMusic) return;
+    var c=ac(); if(!c) return;
+    var t0=c.currentTime+(opts.delay||0);
+    var osc=c.createOscillator(), gain=c.createGain();
+    osc.type=opts.type||'sine';
+    osc.frequency.setValueAtTime(opts.f||440,t0);
+    if(opts.slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(opts.slideTo,20),t0+(opts.dur||0.2));
+    if(opts.vibrato){ var lfo=c.createOscillator(),lg=c.createGain();
+      lfo.frequency.value=opts.vibrato; lg.gain.value=opts.vibDepth||8;
+      lfo.connect(lg); lg.connect(osc.frequency); lfo.start(t0); lfo.stop(t0+(opts.dur||0.2)+0.05); }
+    var vol=(opts.vol!==undefined?opts.vol:0.2)*(Save.data.settings.volume/100);
+    gain.gain.setValueAtTime(0.0001,t0);
+    gain.gain.exponentialRampToValueAtTime(Math.max(vol,0.0001),t0+0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001,t0+(opts.dur||0.2));
+    osc.connect(gain); gain.connect(c.destination);
+    osc.start(t0); osc.stop(t0+(opts.dur||0.2)+0.06);
+  }
+  function noise(opts){
+    if(!Save.data.settings.sfx && !opts.forceMusic) return;
+    var c=ac(); if(!c) return;
+    var t0=c.currentTime+(opts.delay||0), dur=opts.dur||0.2;
+    var buf=c.createBuffer(1,c.sampleRate*dur,c.sampleRate);
+    var d=buf.getChannelData(0);
+    for(var i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.max(0,1-i/d.length);
+    var src=c.createBufferSource(); src.buffer=buf;
+    var gain=c.createGain(), filt=c.createBiquadFilter();
+    filt.type=opts.filterType||'lowpass'; filt.frequency.value=opts.filterFreq||2000;
+    var vol=(opts.vol||0.15)*(Save.data.settings.volume/100);
+    gain.gain.setValueAtTime(vol,t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+    src.connect(filt); filt.connect(gain); gain.connect(c.destination);
+    src.start(t0); src.stop(t0+dur+0.05);
+  }
+
+  return {
+    unlock:unlock,
+    jump:function(){ tone({type:'sine',f:480,slideTo:780,dur:0.13,vol:0.2});
+      tone({type:'sine',f:720,slideTo:1100,dur:0.1,vol:0.08,delay:0.04}); },
+    coin:function(){ tone({type:'triangle',f:880,slideTo:1320,dur:0.1,vol:0.18});
+      tone({type:'sine',f:1320,dur:0.15,vol:0.08,delay:0.06}); },
+    goldCoin:function(){ tone({type:'triangle',f:880,slideTo:1760,dur:0.15,vol:0.2});
+      tone({type:'sine',f:1760,dur:0.2,vol:0.1,delay:0.08});
+      tone({type:'sine',f:2200,dur:0.15,vol:0.06,delay:0.14}); },
+    hit:function(){ noise({dur:0.3,vol:0.25,filterFreq:1200});
+      tone({type:'sawtooth',f:200,slideTo:50,dur:0.35,vol:0.22}); },
+    click:function(){ tone({type:'square',f:620,dur:0.05,vol:0.1}); },
+    combo:function(n){ tone({type:'triangle',f:560+n*45,slideTo:860+n*45,dur:0.14,vol:0.2}); },
+    win:function(){ tone({type:'sine',f:523,dur:0.15,vol:0.2});
+      tone({type:'sine',f:659,dur:0.15,vol:0.2,delay:0.12});
+      tone({type:'sine',f:784,dur:0.3,vol:0.22,delay:0.24}); },
+    lose:function(){ tone({type:'sawtooth',f:300,slideTo:70,dur:0.6,vol:0.2});
+      noise({dur:0.4,vol:0.12,filterFreq:800,delay:0.1}); },
+    powerup:function(){ tone({type:'sine',f:523,dur:0.1,vol:0.18});
+      tone({type:'sine',f:659,dur:0.1,vol:0.18,delay:0.08});
+      tone({type:'sine',f:784,dur:0.1,vol:0.18,delay:0.16});
+      tone({type:'sine',f:1047,dur:0.25,vol:0.2,delay:0.24}); },
+    shieldBreak:function(){ noise({dur:0.25,vol:0.2,filterType:'highpass',filterFreq:3000});
+      tone({type:'sine',f:1200,slideTo:300,dur:0.2,vol:0.15}); },
+    milestone:function(){ tone({type:'triangle',f:660,dur:0.12,vol:0.18});
+      tone({type:'triangle',f:880,dur:0.2,vol:0.2,delay:0.1}); },
+    purchase:function(){ tone({type:'square',f:800,dur:0.06,vol:0.12});
+      tone({type:'square',f:1200,dur:0.1,vol:0.14,delay:0.06}); },
+    achieve:function(){ tone({type:'sine',f:523,dur:0.15,vol:0.18});
+      tone({type:'sine',f:659,dur:0.15,vol:0.18,delay:0.1});
+      tone({type:'sine',f:784,dur:0.15,vol:0.18,delay:0.2});
+      tone({type:'sine',f:1047,dur:0.35,vol:0.22,delay:0.3}); },
+    discover:function(){ tone({type:'sine',f:1400,slideTo:1800,dur:0.12,vol:0.12,vibrato:12,vibDepth:20});
+      tone({type:'sine',f:1800,dur:0.2,vol:0.08,delay:0.1}); },
+    levelup:function(){ [523,587,659,784,880,1047].forEach(function(f,i){
+      tone({type:'sine',f:f,dur:0.12,vol:0.16,delay:i*0.07}); }); },
+    tutStep:function(){ tone({type:'sine',f:700,slideTo:900,dur:0.08,vol:0.1}); },
+    tutDone:function(){ tone({type:'sine',f:523,dur:0.12,vol:0.16});
+      tone({type:'sine',f:784,dur:0.12,vol:0.16,delay:0.1});
+      tone({type:'sine',f:1047,dur:0.3,vol:0.2,delay:0.2}); },
+    startMusic:function(){
+      var self=this; this.stopMusic();
+      if(!Save.data.settings.music) return;
+      var scale=[0,2,4,7,9], walkIdx=2, beat=0;
+      var biomeRoots=[262,220,196,247,175,233,294];
+      musicTimer=setInterval(function(){
+        if(!Save.data.settings.music) return;
+        var bi=Math.min(biomeRoots.length-1, currentBiomeIdx());
+        var root=biomeRoots[bi];
+        walkIdx+=(Math.random()<0.5?1:-1);
+        walkIdx=Math.max(0,Math.min(scale.length-1,walkIdx));
+        var nf=root*Math.pow(2,scale[walkIdx]/12);
+        if(Math.random()<0.65) tone({type:'sine',f:nf,dur:0.45,vol:0.035,forceMusic:true});
+        if(Math.random()<0.25) tone({type:'sine',f:nf*2,dur:0.3,vol:0.015,forceMusic:true,delay:0.15});
+        beat++;
+      },480);
+      musicTimer2=setInterval(function(){
+        if(!Save.data.settings.music) return;
+        var bi=Math.min(biomeRoots.length-1,currentBiomeIdx());
+        var root=biomeRoots[bi];
+        tone({type:'sine',f:root/2,dur:0.7,vol:0.045,forceMusic:true});
+      },960);
+      musicTimer3=setInterval(function(){
+        if(!Save.data.settings.music) return;
+        var bi=Math.min(biomeRoots.length-1,currentBiomeIdx());
+        var root=biomeRoots[bi];
+        tone({type:'triangle',f:root,dur:1.4,vol:0.02,forceMusic:true});
+        tone({type:'triangle',f:root*Math.pow(2,4/12),dur:1.4,vol:0.016,forceMusic:true});
+        tone({type:'triangle',f:root*Math.pow(2,7/12),dur:1.4,vol:0.016,forceMusic:true});
+        if(Math.random()<0.12) tone({type:'sine',f:1800+Math.random()*900,slideTo:2200+Math.random()*600,dur:0.09,vol:0.015,forceMusic:true});
+      },1920);
+    },
+    stopMusic:function(){
+      if(musicTimer){clearInterval(musicTimer);musicTimer=null;}
+      if(musicTimer2){clearInterval(musicTimer2);musicTimer2=null;}
+      if(musicTimer3){clearInterval(musicTimer3);musicTimer3=null;}
+    }
+  };
+})();
+
+/* =========================================================
+   2. GAME DATA — biomes, skins, trails, achievements, etc.
+========================================================= */
+var BIOMES = [
+  { name:'Meadow Fields',    from:0,   sky:['#bdeaff','#e9fff0'], ground:'#7ac74f', groundDark:'#5aa83f',
+    ob:'#8bd77a', obDark:'#5aa03f', accent:'#ffd23f', hillFar:'#a8d88a', hillMid:'#8cc46a', weather:'pollen',
+    obKind:'thorn', flowerCol:'#ff9db4' },
+  { name:'Mushroom Forest',  from:15,  sky:['#7a5fb0','#c9a0e8'], ground:'#6a4a8a', groundDark:'#4a2f6a',
+    ob:'#e86ba0', obDark:'#b0447a', accent:'#ffe4a3', hillFar:'#5a3f8a', hillMid:'#4a2f7a', weather:'spores',
+    obKind:'mushroom', flowerCol:'#e86ba0' },
+  { name:'Crystal Garden',   from:35,  sky:['#1e3a5f','#4f7fb0'], ground:'#2f4f7f', groundDark:'#1e3555',
+    ob:'#7fe0ff', obDark:'#3fa8d8', accent:'#ffffff', hillFar:'#1a3050', hillMid:'#253f65', weather:'sparkle',
+    obKind:'crystal', flowerCol:'#7fe0ff' },
+  { name:'Cherry Blossom Hills', from:60, sky:['#ffc9dd','#fff0f4'], ground:'#c98a7a', groundDark:'#a86a5a',
+    ob:'#d4764e', obDark:'#a85430', accent:'#ff8fb2', hillFar:'#e8a0b8', hillMid:'#d48a9e', weather:'petals',
+    obKind:'vine', flowerCol:'#ffb7c9' },
+  { name:'Volcano Grove',    from:90,  sky:['#3a1c1c','#7a3c1c'], ground:'#4a2c1c', groundDark:'#2c1a10',
+    ob:'#8a4a2c', obDark:'#5c2c14', accent:'#ff7f4a', hillFar:'#3a1c10', hillMid:'#2c1408', weather:'embers',
+    obKind:'rock', flowerCol:'#ff9a5c' },
+  { name:'Moon Garden',      from:125, sky:['#0c1428','#1e2c52'], ground:'#1a2a4f', groundDark:'#0f1c38',
+    ob:'#4a5a8f', obDark:'#2c3a6a', accent:'#cfe6ff', hillFar:'#141e3a', hillMid:'#0f1830', weather:'fireflies',
+    obKind:'crystal', flowerCol:'#cfe6ff' },
+  { name:'Sky Garden',       from:165, sky:['#7fc4ee','#dff0ff'], ground:'#8fb8d4', groundDark:'#6f94b0',
+    ob:'#e8f4ff', obDark:'#b0d0e8', accent:'#ffffff', hillFar:'#c8e4f8', hillMid:'#a8d0f0', weather:'clouds',
+    obKind:'vine', flowerCol:'#ffffff' }
+];
+function biomeFor(sc){ var b=BIOMES[0]; for(var i=0;i<BIOMES.length;i++) if(sc>=BIOMES[i].from) b=BIOMES[i]; return b; }
+function currentBiomeIdx(){ var b=biomeFor(score||0); return BIOMES.indexOf(b); }
+
+var SKINS = [
+  { id:'classic', name:'Sprout',  price:0,   colors:{body:'#6fcf5a',dark:'#4a9e3a',glow:'#c9f28e',cheek:'#ff9db4'} },
+  { id:'sunny',   name:'Sunny',   price:60,  colors:{body:'#ffd23f',dark:'#e0a800',glow:'#fff3b0',cheek:'#ff8a5c'} },
+  { id:'coral',   name:'Coral',   price:60,  colors:{body:'#ff7a59',dark:'#d65a3a',glow:'#ffd0c0',cheek:'#ffb0a0'} },
+  { id:'sky',     name:'Sky',     price:90,  colors:{body:'#4fb3e8',dark:'#2e86c1',glow:'#cdeeff',cheek:'#a0d8ff'} },
+  { id:'violet',  name:'Violet',  price:90,  colors:{body:'#a566e8',dark:'#7a3fc0',glow:'#e6d4ff',cheek:'#d0a0ff'} },
+  { id:'crystal', name:'Crystal', price:150, colors:{body:'#7fffd4',dark:'#3fcdb0',glow:'#ffffff',cheek:'#c0fff0'} },
+  { id:'rose',    name:'Rosé',    price:120, colors:{body:'#ff8fb2',dark:'#d4608a',glow:'#ffd9e4',cheek:'#ff6090'} },
+  { id:'mint',    name:'Mint',    price:120, colors:{body:'#8aefc0',dark:'#4ac090',glow:'#d0ffe8',cheek:'#a0ffd0'} },
+  { id:'ember',   name:'Ember',   price:180, colors:{body:'#ff9a5c',dark:'#d06030',glow:'#ffd9b0',cheek:'#ff6030'} },
+  { id:'lunar',   name:'Lunar',   price:200, colors:{body:'#b0c4e8',dark:'#7090c0',glow:'#e8f0ff',cheek:'#c0d8ff'} },
+  { id:'shadow',  name:'Shadow',  price:250, colors:{body:'#5a6a5e',dark:'#3a4a3e',glow:'#8aaa90',cheek:'#7affb0'} },
+  { id:'rainbow', name:'Prism',   price:350, colors:{body:'#ff9db4',dark:'#a066e8',glow:'#ffd23f',cheek:'#7fe0ff'} }
+];
+
+var TRAILS = [
+  { id:'none',    name:'None',     price:0,   color:null,       type:'none' },
+  { id:'sparkle', name:'Sparkle',  price:80,  color:'#ffd23f',  type:'spark' },
+  { id:'petal',   name:'Petal',    price:100, color:'#ff9db4',  type:'petal' },
+  { id:'fire',    name:'Ember',    price:130, color:'#ff7f4a',  type:'spark' },
+  { id:'snow',    name:'Snow',     price:130, color:'#ffffff',  type:'dot' },
+  { id:'star',    name:'Stardust', price:180, color:'#c9b2ff',  type:'spark' },
+  { id:'leaf',    name:'Leaf',     price:100, color:'#6fcf5a',  type:'leaf' },
+  { id:'rainbow', name:'Rainbow',  price:280, color:'#ff0000',  type:'rainbow' }
+];
+
+var ACHIEVEMENTS = [
+  { id:'first_flight', name:'First Flight',   desc:'Play your first run',          ic:'🌱', check:function(s){return s.runsPlayed>=1;} },
+  { id:'score10',      name:'Budding Talent', desc:'Score 10 in one run',          ic:'🌿', check:function(s){return s.bestScore>=10;} },
+  { id:'score25',      name:'Bloom Rising',   desc:'Score 25 in one run',          ic:'🌸', check:function(s){return s.bestScore>=25;} },
+  { id:'score50',      name:'Garden Master',  desc:'Score 50 in one run',          ic:'🌺', check:function(s){return s.bestScore>=50;} },
+  { id:'score100',     name:'Legend of Bloom',desc:'Score 100 in one run',         ic:'👑', check:function(s){return s.bestScore>=100;} },
+  { id:'coins100',     name:'Sun Collector',  desc:'Earn 100 total Sun Drops',     ic:'💧', check:function(s){return s.totalCoins>=100;} },
+  { id:'coins500',     name:'Sun Hoarder',    desc:'Earn 500 total Sun Drops',     ic:'☀️', check:function(s){return s.totalCoins>=500;} },
+  { id:'coins1500',    name:'Sun Dragon',     desc:'Earn 1500 total Sun Drops',    ic:'🐉', check:function(s){return s.totalCoins>=1500;} },
+  { id:'combo10',      name:'Combo Streak',   desc:'Reach a x10 combo',            ic:'✨', check:function(s){return s.bestCombo>=10;} },
+  { id:'combo20',      name:'Combo Legend',   desc:'Reach a x20 combo',            ic:'💫', check:function(s){return s.bestCombo>=20;} },
+  { id:'runs10',       name:'Dedicated',      desc:'Play 10 runs',                 ic:'🏃', check:function(s){return s.runsPlayed>=10;} },
+  { id:'runs50',       name:'Marathoner',     desc:'Play 50 runs',                 ic:'🏅', check:function(s){return s.runsPlayed>=50;} },
+  { id:'allSkins',     name:'Full Bloom',     desc:'Unlock every sprout skin',     ic:'🎨', check:function(s){return s.skinsOwned>=SKINS.length;} },
+  { id:'allTrails',    name:'Trail Blazer',   desc:'Unlock every trail',           ic:'🌈', check:function(s){return s.trailsOwned>=TRAILS.length;} },
+  { id:'biome3',       name:'Explorer',       desc:'Reach the Crystal Garden',     ic:'💎', check:function(s){return s.bestScore>=35;} },
+  { id:'biome7',       name:'Sky Walker',     desc:'Reach the Sky Garden',         ic:'☁️', check:function(s){return s.bestScore>=165;} },
+  { id:'coll10',       name:'Naturalist',     desc:'Discover 10 species',          ic:'📖', check:function(s){return s.collCount>=10;} },
+  { id:'coll21',       name:'Taxonomist',     desc:'Discover all 21 species',      ic:'🔬', check:function(s){return s.collCount>=21;} },
+  { id:'power5',       name:'Powered Up',     desc:'Collect 5 power-ups total',    ic:'🛡', check:function(s){return s.powerupsUsed>=5;} },
+  { id:'daily3',       name:'Routine Bloom',  desc:'Complete 3 daily missions',    ic:'📋', check:function(s){return s.dailiesDone>=3;} },
+  { id:'level5',       name:'Growing Strong', desc:'Reach level 5',                ic:'⬆️', check:function(s){return s.level>=5;} }
+];
+
+var COLLECTION = [
+  { id:'meadowbell',  biome:0, name:'Meadowbell',    ic:'🌼', desc:'A cheerful bell-shaped flower' },
+  { id:'honeybee',    biome:0, name:'Honeybee',      ic:'🐝', desc:'Busy pollinator of the meadows' },
+  { id:'dewsprite',   biome:0, name:'Dewdrop Sprite', ic:'💧', desc:'Tiny spirit born from morning dew' },
+  { id:'sporecap',    biome:1, name:'Sporecap',      ic:'🍄', desc:'Glowing mushroom of the deep forest' },
+  { id:'glowsnail',   biome:1, name:'Glow Snail',    ic:'🐌', desc:'Leaves a trail of soft light' },
+  { id:'forestmoth',  biome:1, name:'Forest Moth',   ic:'🦋', desc:'Wings shimmer with spore dust' },
+  { id:'prismshard',  biome:2, name:'Prism Shard',   ic:'💎', desc:'A crystal that splits light into rainbows' },
+  { id:'icewisp',     biome:2, name:'Ice Wisp',      ic:'❄️', desc:'A cold spirit that dances in the garden' },
+  { id:'crystalbat',  biome:2, name:'Crystal Bat',   ic:'🦇', desc:'Roosts among the crystal spires' },
+  { id:'sakurapetal', biome:3, name:'Sakura Petal',  ic:'🌸', desc:'A single perfect cherry blossom petal' },
+  { id:'songbird',    biome:3, name:'Songbird',      ic:'🐦', desc:'Sings melodies among the blossoms' },
+  { id:'petalfairy',  biome:3, name:'Petal Fairy',   ic:'🧚', desc:'Rides the wind on cherry petals' },
+  { id:'emberseed',   biome:4, name:'Ember Seed',    ic:'🔥', desc:'A seed that burns but never consumes' },
+  { id:'lavabeetle',  biome:4, name:'Lava Beetle',   ic:'🪲', desc:'Its shell glows like molten rock' },
+  { id:'ashphoenix',  biome:4, name:'Ash Phoenix',   ic:'🐦‍🔥', desc:'Reborn from volcanic ash' },
+  { id:'lunarlily',   biome:5, name:'Lunar Lily',    ic:'🌙', desc:'Blooms only under moonlight' },
+  { id:'starmoth',    biome:5, name:'Star Moth',     ic:'⭐', desc:'Wings reflect the night sky' },
+  { id:'nightowl',    biome:5, name:'Night Owl',     ic:'🦉', desc:'Silent guardian of the moon garden' },
+  { id:'cloudpuff',   biome:6, name:'Cloud Puff',    ic:'☁️', desc:'A living fragment of cloud' },
+  { id:'windsprite',  biome:6, name:'Wind Sprite',   ic:'🌬️', desc:'Dances on the highest breezes' },
+  { id:'rainbowbird', biome:6, name:'Rainbow Bird',  ic:'🌈', desc:'Feathers shift through every color' }
+];
+
+var DAILY_POOL = [
+  { id:'d_score15',  label:'Score 15 in one run',       key:'bestRunScore', target:15,  reward:30 },
+  { id:'d_score30',  label:'Score 30 in one run',       key:'bestRunScore', target:30,  reward:50 },
+  { id:'d_coins10',  label:'Collect 10 drops in one run',key:'bestRunCoins', target:10, reward:25 },
+  { id:'d_combo8',   label:'Reach x8 combo',            key:'bestRunCombo', target:8,   reward:35 },
+  { id:'d_runs3',    label:'Play 3 runs',               key:'runsToday',    target:3,   reward:30 },
+  { id:'d_runs5',    label:'Play 5 runs',               key:'runsToday',    target:5,   reward:50 },
+  { id:'d_coins20',  label:'Collect 20 drops in one run',key:'bestRunCoins',target:20,  reward:45 },
+  { id:'d_score50',  label:'Score 50 in one run',       key:'bestRunScore', target:50,  reward:70 }
+];
+
+var POWERUP_TYPES = [
+  { id:'shield', ic:'🛡️', color:'#4fb3e8', dur:0,  label:'Shield' },
+  { id:'magnet', ic:'🧲', color:'#ff7a59', dur:5,  label:'Magnet' },
+  { id:'slow',   ic:'🐌', color:'#6fcf5a', dur:4,  label:'Slow-Mo' }
+];
+
+var MILESTONES = [
+  { at:10,  msg:'🌿 Score 10 — Keep growing!' },
+  { at:25,  msg:'🌸 Score 25 — Blooming beautifully!' },
+  { at:50,  msg:'🌺 Score 50 — Garden Master!' },
+  { at:100, msg:'👑 Score 100 — LEGENDARY!' },
+  { at:150, msg:'🌟 Score 150 — Beyond the sky!' }
+];
+
+/* =========================================================
+   3. SAVE SYSTEM
+========================================================= */
+/* ===== 🆕 EXPANSION: 4 new maps, 12 new species, 8 new goals ===== */
+BIOMES.push(
+  {name:'Coral Reef',from:210,sky:['#0a5a7a','#1a9ab0'],ground:'#2a7a8a',groundDark:'#1a5a6a',ob:'#ff8a6a',obDark:'#c05a3a',accent:'#7fe0ff',hillFar:'#0a4a6a',hillMid:'#1a6a8a',weather:'sparkle',obKind:'crystal',flowerCol:'#ff9db4'},
+  {name:'Haunted Grove',from:260,sky:['#1a1428','#2c2040'],ground:'#2a2438',groundDark:'#1a1428',ob:'#5a4a7a',obDark:'#3a2c5a',accent:'#8aff8a',hillFar:'#141020',hillMid:'#1e1830',weather:'fireflies',obKind:'vine',flowerCol:'#8aff8a'},
+  {name:'Candy Kingdom',from:320,sky:['#ffb8d8','#ffe8f4'],ground:'#e88ab0',groundDark:'#c06a90',ob:'#ff6a9a',obDark:'#d04a7a',accent:'#ffd23f',hillFar:'#f0a0c8',hillMid:'#e890b8',weather:'petals',obKind:'mushroom',flowerCol:'#ff9db4'},
+  {name:'Aurora Tundra',from:390,sky:['#0a1428','#1a3050'],ground:'#3a5a7a',groundDark:'#2a4060',ob:'#8ac8e8',obDark:'#5a9ac0',accent:'#8affc0',hillFar:'#0f1e38',hillMid:'#1a2c48',weather:'sparkle',obKind:'thorn',flowerCol:'#8affc0'}
+);
+COLLECTION.push(
+  {id:'coralfan',biome:7,name:'Coral Fan',ic:'🪸',desc:'A fan-shaped coral that filters sunlight'},
+  {id:'bubblefish',biome:7,name:'Bubble Fish',ic:'🐠',desc:'Breathes tiny shimmering bubbles'},
+  {id:'pearlseahorse',biome:7,name:'Pearl Seahorse',ic:'🐚',desc:'Carries a pearl like a lantern'},
+  {id:'ghostwisp',biome:8,name:'Ghost Wisp',ic:'👻',desc:'A friendly spirit that glows green'},
+  {id:'bonebeetle',biome:8,name:'Bone Beetle',ic:'🪲',desc:'Its shell resembles ancient bone'},
+  {id:'willowlantern',biome:8,name:'Willow Lantern',ic:'🏮',desc:'A floating light among dead trees'},
+  {id:'gummybear',biome:9,name:'Gummy Bear',ic:'🧸',desc:'A living candy creature, very sweet'},
+  {id:'lollipopfly',biome:9,name:'Lollipop Fly',ic:'🍭',desc:'Wings made of spun sugar'},
+  {id:'chocofrog',biome:9,name:'Choco Frog',ic:'🐸',desc:'Hops through rivers of caramel'},
+  {id:'frostfox',biome:10,name:'Frost Fox',ic:'🦊',desc:'Its fur shimmers with ice crystals'},
+  {id:'aurorawl',biome:10,name:'Aurora Owl',ic:'🦉',desc:'Eyes reflect the northern lights'},
+  {id:'snowsprite',biome:10,name:'Snow Sprite',ic:'❄️',desc:'Dances in the aurora winds'}
+);
+ACHIEVEMENTS.push(
+  {id:'reef',name:'Deep Diver',desc:'Reach the Coral Reef',ic:'🪸',check:function(s){return s.bestScore>=210;}},
+  {id:'haunted',name:'Ghost Whisperer',desc:'Reach the Haunted Grove',ic:'👻',check:function(s){return s.bestScore>=260;}},
+  {id:'candy',name:'Sweet Tooth',desc:'Reach the Candy Kingdom',ic:'🍭',check:function(s){return s.bestScore>=320;}},
+  {id:'aurora',name:'Northern Lights',desc:'Reach the Aurora Tundra',ic:'🌌',check:function(s){return s.bestScore>=390;}},
+  {id:'score250',name:'Sky High',desc:'Score 250 in one run',ic:'🚀',check:function(s){return s.bestScore>=250;}},
+  {id:'score500',name:'Legend Reborn',desc:'Score 500 in one run',ic:'👑',check:function(s){return s.bestScore>=500;}},
+  {id:'coll30',name:'Master Naturalist',desc:'Discover 30 species',ic:'🔬',check:function(s){return s.collCount>=30;}},
+  {id:'combo25',name:'Untouchable',desc:'Reach a x25 combo',ic:'🔥',check:function(s){return s.bestCombo>=25;}}
+);
+
+/* ===== 🎮 8-BIT MUSIC MODE ===== */
+var Chip={ctx:null,t1:null,t2:null,t3:null,
+  ac:function(){if(!this.ctx){try{this.ctx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return this.ctx;},
+  note:function(f,dur,type,vol){
+    var c=this.ac();if(!c)return;
+    var t0=c.currentTime,o=c.createOscillator(),g=c.createGain();
+    o.type=type||'square';o.frequency.value=f;
+    var v=(vol||0.08)*(Save.data.settings.volume/100);
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(v,0.0001),t0+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+    o.connect(g);g.connect(c.destination);o.start(t0);o.stop(t0+dur+0.05);
+  },
+  start:function(){
+    this.stop();var self=this,bi=0,ai=0;
+    var bass=[55,55,65.41,49],arp=[220,261.63,329.63,392,523.25,659.25];
+    this.t1=setInterval(function(){if(!Save.data.settings.music)return;self.note(bass[bi%bass.length],0.22,'sawtooth',0.09);bi++;},250);
+    this.t2=setInterval(function(){if(!Save.data.settings.music)return;self.note(arp[ai%arp.length],0.1,'square',0.045);ai+=(Math.random()<0.3?2:1);},125);
+    this.t3=setInterval(function(){if(!Save.data.settings.music)return;self.note(40,0.09,'square',0.1);},500);
+  },
+  stop:function(){
+    if(this.t1){clearInterval(this.t1);this.t1=null;}
+    if(this.t2){clearInterval(this.t2);this.t2=null;}
+    if(this.t3){clearInterval(this.t3);this.t3=null;}
+  }
+};
+var _origStartMusic=Audio_.startMusic,_origStopMusic=Audio_.stopMusic;
+Audio_.startMusic=function(){
+  if(Save.data.settings.musicStyle==='8bit'){Chip.start();}
+  else{_origStartMusic.call(this);}
+};
+Audio_.stopMusic=function(){_origStopMusic.call(this);Chip.stop();};
+
+/* ===== 🌍 MEGA EXPANSION: 10 maps · 30 species · 8 sprouts · 10 goals · 15 missions ===== */
+(function(){
+  var start=BIOMES[BIOMES.length-1].from;
+  var M=[
+    {n:'Sunset Canyon',sky:['#ff9a5c','#ffd23f'],ground:'#c06a3a',groundDark:'#8a4a2a',ob:'#8a5a3a',obDark:'#5c3a20',accent:'#ffd23f',hillFar:'#a85a30',hillMid:'#8a4a28',weather:'embers',obKind:'rock',flowerCol:'#ff9a5c'},
+    {n:'Neon City',sky:['#1a0a2e','#4a1a6e'],ground:'#2a1a4a',groundDark:'#1a0a30',ob:'#ff2e9a',obDark:'#c01a7a',accent:'#2effff',hillFar:'#16082a',hillMid:'#221040',weather:'sparkle',obKind:'crystal',flowerCol:'#ff2e9a'},
+    {n:'Frozen Peaks',sky:['#c8e8ff','#ffffff'],ground:'#a8c8e8',groundDark:'#7aa0c8',ob:'#8ab8e0',obDark:'#5a88b8',accent:'#ffffff',hillFar:'#b8d8f0',hillMid:'#98c0e0',weather:'sparkle',obKind:'thorn',flowerCol:'#c8e8ff'},
+    {n:'Toxic Swamp',sky:['#3a5a2a','#6a8a3a'],ground:'#4a6a2a',groundDark:'#2a4a1a',ob:'#8aaa2a',obDark:'#5c7a1a',accent:'#c8ff4a',hillFar:'#32501f',hillMid:'#3f6028',weather:'spores',obKind:'vine',flowerCol:'#c8ff4a'},
+    {n:'Golden Desert',sky:['#ffd88a','#ffe8b8'],ground:'#e8b85c',groundDark:'#c0903a',ob:'#d8a84a',obDark:'#a87a2a',accent:'#fff0c0',hillFar:'#d8a850',hillMid:'#c09040',weather:'pollen',obKind:'rock',flowerCol:'#ffd88a'},
+    {n:'Storm Peaks',sky:['#2a3a5c','#4a5a7a'],ground:'#3a4a6a',groundDark:'#22304a',ob:'#5a6a8a',obDark:'#3a4a68',accent:'#a8c8ff',hillFar:'#243050',hillMid:'#2e3c5c',weather:'clouds',obKind:'thorn',flowerCol:'#a8c8ff'},
+    {n:'Cherry Temple',sky:['#5c1a2a','#a83a4a'],ground:'#8a2a3a',groundDark:'#5c1a28',ob:'#d85a6a',obDark:'#a83a4a',accent:'#ffb8c8',hillFar:'#4a1420',hillMid:'#5c1c2a',weather:'petals',obKind:'vine',flowerCol:'#ffb8c8'},
+    {n:'Glow Cave',sky:['#0a2a2a','#1a4a4a'],ground:'#1a3a3a',groundDark:'#0a2020',ob:'#2affc8',obDark:'#1ac0a0',accent:'#2affc8',hillFar:'#082020',hillMid:'#0e2c2c',weather:'fireflies',obKind:'crystal',flowerCol:'#2affc8'},
+    {n:'Lava Fields',sky:['#1a0a0a','#5c1a0a'],ground:'#3a1a0a',groundDark:'#1a0a04',ob:'#ff5a1a',obDark:'#c03a0a',accent:'#ffaa2a',hillFar:'#140604',hillMid:'#200c06',weather:'embers',obKind:'rock',flowerCol:'#ff5a1a'},
+    {n:'Rainbow Falls',sky:['#a8d8ff','#ffd8e8'],ground:'#8ab8d8',groundDark:'#6a90b0',ob:'#ff8ac8',obDark:'#d85aa0',accent:'#ffd23f',hillFar:'#98c8e8',hillMid:'#88b8d8',weather:'petals',obKind:'mushroom',flowerCol:'#ff8ac8'}
+  ];
+  var froms=[],i;
+  var bi0=BIOMES.length;
+  for(i=0;i<M.length;i++){
+    var m=M[i],f=start+(i+1)*45;
+    froms.push(f);
+    BIOMES.push({name:m.n,from:f,sky:m.sky,ground:m.ground,groundDark:m.groundDark,ob:m.ob,obDark:m.obDark,accent:m.accent,hillFar:m.hillFar,hillMid:m.hillMid,weather:m.weather,obKind:m.obKind,flowerCol:m.flowerCol});
+  }
+  var SP=[
+    ['sunsetfox','Sunset Fox','🦊','Watches the canyon dusk'],['cactusbird','Cactus Bird','🌵','Nests in golden spines'],['dustdevil','Dust Devil','🌪️','A playful wind spirit'],
+    ['neonbug','Neon Bug','🪲','Glows with city light'],['hologram','Holo Sprite','🤖','Flickers between worlds'],['synthcat','Synth Cat','🐈','Purrs in electronic hums'],
+    ['iceshard','Ice Shard','🧊','A fragment of living frost'],['snowhare','Snow Hare','🐇','Leaves sparkling tracks'],['frostwing','Frost Wing','🕊️','Rides the cold wind'],
+    ['swampglow','Swamp Glow','🐊','Eyes shine in the murk'],['sporetoad','Spore Toad','🐸','Breathes glowing spores'],['vinelurker','Vine Lurker','🐍','Hides in the green'],
+    ['sandworm','Sand Worm','🪱','Swims through dunes'],['mirage','Mirage','🏜️','Appears on hot days'],['scarab','Gold Scarab','🪲','Shines like treasure'],
+    ['stormhawk','Storm Hawk','🦅','Rides the thunder'],['raincloud','Rain Cloud','🌧️','A friendly drizzle'],['thunderbug','Thunder Bug','⚡','Crackles with static'],
+    ['templebloom','Temple Bloom','🌺','Guards the old shrine'],['spiritkoi','Spirit Koi','🐟','Swims through petals'],['paperlantern','Paper Lantern','🏮','Floats with wishes'],
+    ['caveglow','Cave Glow','💡','Lights the dark'],['glassbat','Glass Bat','🦇','Wings of crystal'],['echofish','Echo Fish','🐠','Sings in the deep'],
+    ['lavaslug','Lava Slug','🐌','Leaves molten trails'],['emberbird','Ember Bird','🐦','Wings of flame'],['ashgolem','Ash Golem','🗿','Walks the cooled lava'],
+    ['rainbowtrout','Rainbow Trout','🐟','Scales of every color'],['prismbee','Prism Bee','🐝','Makes rainbow honey'],['fallsprite','Fall Sprite','🧚','Dances in the mist']
+  ];
+  for(i=0;i<SP.length;i++){
+    COLLECTION.push({id:SP[i][0],biome:bi0+Math.floor(i/3),name:SP[i][1],ic:SP[i][2],desc:SP[i][3]});
+  }
+  SKINS.push(
+    {id:'ocean',name:'Ocean',price:200,colors:{body:'#4fc4c4',dark:'#2a8a8a',glow:'#c0ffff',cheek:'#80e0e0'}},
+    {id:'phantom',name:'Phantom',price:280,colors:{body:'#c8c8d8',dark:'#8888a0',glow:'#f0f0ff',cheek:'#d0d0ff'}},
+    {id:'bonbon',name:'Bonbon',price:220,colors:{body:'#ff8ac4',dark:'#d05a9a',glow:'#ffe0f0',cheek:'#ff60b0'}},
+    {id:'aurora',name:'Aurora',price:400,colors:{body:'#8affc0',dark:'#4ac090',glow:'#c0ffe0',cheek:'#80d0ff'}},
+    {id:'midas',name:'Midas',price:500,colors:{body:'#ffd23f',dark:'#c09a1a',glow:'#fff0b0',cheek:'#ffb02a'}},
+    {id:'toxic',name:'Toxic',price:300,colors:{body:'#aaff2a',dark:'#7ac01a',glow:'#e0ffb0',cheek:'#c8ff60'}},
+    {id:'midnight',name:'Midnight',price:350,colors:{body:'#3a4a8a',dark:'#1a2a5c',glow:'#8aa0ff',cheek:'#5a70d0'}},
+    {id:'flamingo',name:'Flamingo',price:260,colors:{body:'#ff9ab8',dark:'#e06a90',glow:'#ffd0e0',cheek:'#ff7aa0'}}
+  );
+  var icons=['🌅','🌃','🏔️','🐊','🏜️','⛈️','🏯','🦇','🌋','🌈'];
+  for(i=0;i<M.length;i++){
+    (function(nm,ic,fr){ACHIEVEMENTS.push({id:'go_'+nm.replace(/\s/g,''),name:nm,desc:'Reach '+nm,ic:ic,check:function(s){return s.bestScore>=fr;}});})(M[i].n,icons[i],froms[i]);
+  }
+  DAILY_POOL.push(
+    {id:'d_score40',label:'Score 40 in one run',key:'bestRunScore',target:40,reward:55},
+    {id:'d_score60',label:'Score 60 in one run',key:'bestRunScore',target:60,reward:75},
+    {id:'d_score80',label:'Score 80 in one run',key:'bestRunScore',target:80,reward:95},
+    {id:'d_score100',label:'Score 100 in one run',key:'bestRunScore',target:100,reward:120},
+    {id:'d_coins15',label:'Collect 15 drops in one run',key:'bestRunCoins',target:15,reward:35},
+    {id:'d_coins25',label:'Collect 25 drops in one run',key:'bestRunCoins',target:25,reward:55},
+    {id:'d_coins30',label:'Collect 30 drops in one run',key:'bestRunCoins',target:30,reward:70},
+    {id:'d_combo12',label:'Reach x12 combo',key:'bestRunCombo',target:12,reward:45},
+    {id:'d_combo15',label:'Reach x15 combo',key:'bestRunCombo',target:15,reward:60},
+    {id:'d_combo20',label:'Reach x20 combo',key:'bestRunCombo',target:20,reward:80},
+    {id:'d_runs4',label:'Play 4 runs',key:'runsToday',target:4,reward:40},
+    {id:'d_runs6',label:'Play 6 runs',key:'runsToday',target:6,reward:60},
+    {id:'d_runs8',label:'Play 8 runs',key:'runsToday',target:8,reward:80},
+    {id:'d_runs10',label:'Play 10 runs',key:'runsToday',target:10,reward:100},
+    {id:'d_score70',label:'Score 70 in one run',key:'bestRunScore',target:70,reward:85}
+  );
+})();
+
+var Save = {
+  KEY:'bloombound_save_v2',
+  data:null,
+  defaults:function(){
+    return {
+      bestScore:0, totalCoins:0, bestCombo:0, runsPlayed:0,
+      coins:0, xp:0, level:1,
+      owned:{classic:true}, equipped:'classic',
+      ownedTrails:{none:true}, equippedTrail:'none',
+      achUnlocked:{}, collection:{},
+      powerupsUsed:0, dailiesDone:0,
+      settings:{ sfx:true, music:true, shake:true, volume:70 },
+      tutDone:false,
+      daily:{ date:'', missions:[], streak:0, lastDate:'' },
+      dailyProg:{}
+    };
+  },
+  load:function(){
+    try{
+      var raw=localStorage.getItem(this.KEY);
+      if(raw){
+        this.data=Object.assign(this.defaults(),JSON.parse(raw));
+        if(!this.data.owned) this.data.owned={classic:true};
+        if(!this.data.ownedTrails) this.data.ownedTrails={none:true};
+        if(!this.data.settings) this.data.settings=this.defaults().settings;
+        if(!this.data.collection) this.data.collection={};
+        if(!this.data.daily) this.data.daily={date:'',missions:[],streak:0,lastDate:''};
+        if(!this.data.dailyProg) this.data.dailyProg={};
+        if(this.data.settings.shake===undefined) this.data.settings.shake=true;
+        if(this.data.settings.comboChime===undefined) this.data.settings.comboChime=true;
+        if(this.data.settings.ambience===undefined) this.data.settings.ambience=true;
+      } else this.data=this.defaults();
+    }catch(e){ this.data=this.defaults(); }
+  },
+  save:function(){ try{localStorage.setItem(this.KEY,JSON.stringify(this.data));}catch(e){} },
+  reset:function(){ this.data=this.defaults(); this.save(); }
+};
+Save.load();
+
+/* =========================================================
+   4. CANVAS / SIZING / UTILS
+========================================================= */
+var cvs=document.getElementById('game'), ctx=cvs.getContext('2d');
+var stageEl=document.getElementById('stage');
+var W=0,H=0,DPR=1;
+function resize(){
+  var r=stageEl.getBoundingClientRect();
+  W=r.width; H=r.height;
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  cvs.width=W*DPR; cvs.height=H*DPR;
+  cvs.style.width=W+'px'; cvs.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize);
+function lerp(a,b,t){return a+(b-a)*t;}
+function rand(a,b){return a+Math.random()*(b-a);}
+function seededRand(seed){var s=seed;return function(){s=(s*16807+0)%2147483647;return(s-1)/2147483646;};}
+
+/* =========================================================
+   5. GAME STATE
+========================================================= */
+var STATE={MENU:'menu',READY:'ready',PLAYING:'playing',PAUSED:'paused',OVER:'over'};
+var state=STATE.MENU;
+var GRAVITY=1500, JUMP_V=-430, GAP_MIN=168, GAP_MAX=210, OB_W=58, SPEED_BASE=165;
+var player,obstacles,coinsArr,particles,powerups,floatingTexts,weatherParts;
+var score,comboCount,comboTimer,runCoins,elapsed,spawnTimer,speed,lastTS;
+var shieldActive,magnetTimer,slowTimer,shakeTimer,shakeMag;
+var lastBiomeName, milestoneIdx, trailTimer;
+var runXpEarned;
+var bfX=-60,bfY=100;
+
+function resetRun(){
+  player={x:0,y:0,vy:0,r:22,rot:0,squash:1};
+  obstacles=[]; coinsArr=[]; particles=[]; powerups=[]; floatingTexts=[]; weatherParts=[];
+  score=0; comboCount=0; comboTimer=0; runCoins=0; elapsed=0;
+  spawnTimer=0; speed=SPEED_BASE;
+  shieldActive=false; magnetTimer=0; slowTimer=0;
+  shakeTimer=0; shakeMag=0; milestoneIdx=0; trailTimer=0;
+  runXpEarned=0;
+  bfX=-60; bfY=100;
+  player.x=W*0.32; player.y=H*0.42;
+  lastBiomeName=BIOMES[0].name;
+  applyBoosts();
+}
+
+/* =========================================================
+   6. UI HELPERS
+========================================================= */
+var $=function(id){return document.getElementById(id);};
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
+  if(id) $(id).classList.add('active');
+}
+function refreshHud(){
+  $('hudScore').textContent=score;
+  $('hudCoins').textContent=runCoins;
+}
+function refreshMenu(){
+  $('menuBest').textContent=Save.data.bestScore;
+  $('menuCoins').textContent=Save.data.coins;
+  var collN=Object.keys(Save.data.collection).length;
+  $('menuColl').textContent='📖 Collection: '+collN+' / '+COLLECTION.length;
+  var xpNeed=Save.data.level*Save.data.level*50;
+  $('lvlLabel').textContent='Lv '+Save.data.level;
+  $('xpLabel').textContent=Save.data.xp+' / '+xpNeed+' XP';
+  $('xpFill').style.width=Math.min(100,Save.data.xp/xpNeed*100)+'%';
+  refreshDailyTeaser();
+}
+function refreshDailyTeaser(){
+  rollDaily();
+  var pending=Save.data.daily.missions.filter(function(m){return !m.claimed;});
+  var done=Save.data.daily.missions.filter(function(m){return m.claimed;});
+  var el=$('dailyTeaser');
+  if(pending.length>0){
+    el.style.display='block';
+    $('dailyTeaserTxt').textContent=done.length+'/'+Save.data.daily.missions.length+
+      ' done — '+pending[0].label;
+  } else {
+    el.style.display='block';
+    $('dailyTeaserTxt').textContent='All done today! Come back tomorrow 🌙';
+  }
+}
+
+/* ---- Toast ---- */
+var toastTimer=null;
+function popToast(msg){
+  var el=document.getElementById('toastEl');
+  if(!el){
+    el=document.createElement('div'); el.id='toastEl';
+    el.style.cssText='position:absolute;bottom:24px;left:50%;transform:translateX(-50%);'+
+      'background:rgba(20,20,20,.88);color:#fff;font-weight:800;font-size:.78rem;padding:8px 16px;'+
+      'border-radius:99px;z-index:20;opacity:0;transition:opacity .25s;pointer-events:none;max-width:82%;text-align:center;';
+    stageEl.appendChild(el);
+  }
+  el.textContent=msg; el.style.opacity='1';
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){el.style.opacity='0';},1800);
+}
+
+/* ---- Floating text (canvas) ---- */
+function addFloat(x,y,txt,color,size){
+  floatingTexts.push({x:x,y:y,txt:txt,color:color||'#fff',size:size||14,life:1,vy:-50});
+}
+
+/* ---- Biome toast ---- */
+var biomeToastTimer=null;
+function showBiomeToast(name){
+  var el=$('biomeToast');
+  el.textContent='🌍 Entering: '+name;
+  el.classList.add('show');
+  if(biomeToastTimer) clearTimeout(biomeToastTimer);
+  biomeToastTimer=setTimeout(function(){el.classList.remove('show');},2200);
+}
+
+/* ---- Power HUD ---- */
+function refreshPowerHud(){
+  var el=$('powerHud'), html='';
+  if(shieldActive) html+='<div class="pwPill">🛡️ Shield</div>';
+  if(magnetTimer>0) html+='<div class="pwPill">🧲 <div class="pwBar"><i style="width:'+(magnetTimer/5*100)+'%;background:#ff7a59;"></i></div></div>';
+  if(slowTimer>0) html+='<div class="pwPill">🐌 <div class="pwBar"><i style="width:'+(slowTimer/4*100)+'%;background:#6fcf5a;"></i></div></div>';
+  el.innerHTML=html;
+}
+
+/* =========================================================
+   7. TUTORIAL SYSTEM
+========================================================= */
+var TUT_STEPS=[
+  {ic:'🌱',title:'WELCOME, SPROUTLING!',text:'TAP anywhere to rise. Release to fall. Keep your sprout flying through the gaps!'},
+  {ic:'🌵',title:'AVOID OBSTACLES',text:'Thorns, mushrooms, crystals & more will wilt you on touch. Thread the gaps carefully!'},
+  {ic:'💧',title:'COLLECT SUN DROPS',text:'Grab glowing drops floating in the gaps. They\'re your currency for the shop!'},
+  {ic:'✨',title:'BUILD COMBOS',text:'Pass obstacles quickly in succession to chain combos. Higher combo = more style!'},
+  {ic:'🛡️',title:'POWER-UPS',text:'Shield blocks one hit. Magnet attracts nearby drops. Snail slows down time. Grab them!'},
+  {ic:'🌍',title:'EXPLORE 7 BIOMES',text:'Meadows, forests, crystals, blossoms, volcanoes, moonlight & sky — each with unique sights!'},
+  {ic:'🌸',title:'READY TO BLOOM?',text:'Your journey begins now. Tap below to start flying, little sprout!'}
+];
+var tutStep=0, tutActive=false;
+function showTutorial(){
+  tutStep=0; tutActive=true;
+  renderTutStep();
+  $('tutorialOverlay').classList.add('active');
+}
+function hideTutorial(){
+  tutActive=false;
+  $('tutorialOverlay').classList.remove('active');
+}
+function renderTutStep(){
+  var s=TUT_STEPS[tutStep];
+  $('tutIc').textContent=s.ic;
+  $('tutTitle').textContent=s.title;
+  $('tutText').textContent=s.text;
+  $('tutStep').textContent=(tutStep+1)+' / '+TUT_STEPS.length;
+  var dots='';
+  for(var i=0;i<TUT_STEPS.length;i++) dots+='<span class="'+(i<=tutStep?'on':'')+'"></span>';
+  $('tutDots').innerHTML=dots;
+  $('tutNext').textContent=(tutStep>=TUT_STEPS.length-1)?'🌱 START!':'NEXT ▶';
+}
+$('tutNext').addEventListener('click',function(){
+  Audio_.tutStep();
+  tutStep++;
+  if(tutStep>=TUT_STEPS.length){
+    hideTutorial();
+    Save.data.tutDone=true; Save.save();
+    Audio_.tutDone();
+    $('readyTap').classList.add('show');
+  } else {
+    renderTutStep();
+  }
+});
+
+/* =========================================================
+   8. DRAWING — SPROUT (improved textures & animation)
+========================================================= */
+function drawSprout(c,x,y,scale,colors,phase,rot,squash){
+  c.save();
+  c.translate(x,y);
+  c.rotate(rot||0);
+  var sq=squash||1;
+  c.scale(scale*(2-sq)*0.5+scale*0.5, scale*sq);
+
+  /* glow aura */
+  var glow=c.createRadialGradient(0,0,4,0,0,36);
+  glow.addColorStop(0,colors.glow+'88');
+  glow.addColorStop(1,colors.glow+'00');
+  c.fillStyle=glow;
+  c.beginPath(); c.arc(0,0,36,0,Math.PI*2); c.fill();
+
+  /* leaf wings (flap with phase) */
+  var flap=Math.sin(phase*2.5)*0.3;
+  c.save();
+  c.translate(-14,-8); c.rotate(-0.6-flap);
+  drawLeafShape(c,0,0,18,8,colors.dark,colors.body);
+  c.restore();
+  c.save();
+  c.translate(14,-8); c.rotate(0.6+flap);
+  drawLeafShape(c,0,0,18,8,colors.dark,colors.body);
+  c.restore();
+
+  /* stem tail */
+  c.strokeStyle=colors.dark; c.lineWidth=4.5; c.lineCap='round';
+  c.beginPath(); c.moveTo(-2,18);
+  c.quadraticCurveTo(-12,26+Math.sin(phase)*3,-5,34);
+  c.stroke();
+
+  /* body with layered gradient */
+  var bodyGrad=c.createRadialGradient(-7,-9,3,0,0,27);
+  bodyGrad.addColorStop(0,colors.glow);
+  bodyGrad.addColorStop(0.45,colors.body);
+  bodyGrad.addColorStop(1,colors.dark);
+  c.fillStyle=bodyGrad;
+  c.beginPath();
+  c.moveTo(0,-25);
+  c.quadraticCurveTo(21,-15,19,8);
+  c.quadraticCurveTo(15,25,0,27);
+  c.quadraticCurveTo(-15,25,-19,8);
+  c.quadraticCurveTo(-21,-15,0,-25);
+  c.closePath(); c.fill();
+  c.strokeStyle=colors.dark; c.lineWidth=2.5; c.stroke();
+
+  /* belly highlight */
+  c.fillStyle='rgba(255,255,255,.18)';
+  c.beginPath(); c.ellipse(-4,-4,10,13,-.2,0,Math.PI*2); c.fill();
+
+  /* top sprig */
+  c.fillStyle=colors.dark;
+  c.beginPath();
+  c.moveTo(0,-25); c.quadraticCurveTo(7,-38,3,-43);
+  c.quadraticCurveTo(-3,-36,0,-25);
+  c.fill();
+  c.fillStyle=colors.body;
+  c.beginPath();
+  c.moveTo(0,-25); c.quadraticCurveTo(-6,-36,-2,-41);
+  c.quadraticCurveTo(2,-34,0,-25);
+  c.fill();
+
+  /* cheeks */
+  c.fillStyle=colors.cheek+'66';
+  c.beginPath(); c.ellipse(-11,4,4.5,3,0,0,Math.PI*2); c.fill();
+  c.beginPath(); c.ellipse(11,4,4.5,3,0,0,Math.PI*2); c.fill();
+
+  /* eyes with blink */
+  var blink=(Math.sin(phase*0.7)>0.96)?0.12:1;
+  c.fillStyle='#1f3b2c';
+  c.save(); c.translate(-6.5,-1); c.scale(1,blink);
+  c.beginPath(); c.arc(0,0,3.6,0,Math.PI*2); c.fill();
+  c.fillStyle='#fff'; c.beginPath(); c.arc(1.2,-1.2,1.2,0,Math.PI*2); c.fill();
+  c.restore();
+  c.fillStyle='#1f3b2c';
+  c.save(); c.translate(6.5,-1); c.scale(1,blink);
+  c.beginPath(); c.arc(0,0,3.6,0,Math.PI*2); c.fill();
+  c.fillStyle='#fff'; c.beginPath(); c.arc(1.2,-1.2,1.2,0,Math.PI*2); c.fill();
+  c.restore();
+
+  /* smile */
+  c.strokeStyle='#1f3b2c'; c.lineWidth=2; c.lineCap='round';
+  c.beginPath(); c.arc(0,6,5.5,0.15*Math.PI,0.85*Math.PI); c.stroke();
+
+  c.restore();
+}
+function drawLeafShape(c,x,y,len,w,c1,c2){
+  var g=c.createLinearGradient(x,y,x,y-len);
+  g.addColorStop(0,c1); g.addColorStop(1,c2);
+  c.fillStyle=g;
+  c.beginPath();
+  c.moveTo(x,y);
+  c.quadraticCurveTo(x+w,y-len*0.4,x,y-len);
+  c.quadraticCurveTo(x-w,y-len*0.4,x,y);
+  c.closePath(); c.fill();
+}
+
+/* =========================================================
+   9. DRAWING — WORLD (parallax, weather, improved textures)
+========================================================= */
+var groundH=46;
+function drawSky(biome){
+  var g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,biome.sky[0]); g.addColorStop(1,biome.sky[1]);
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  /* 🌙 day/night cycle */
+  var nightA=(Math.sin(elapsed*0.12-Math.PI/2)+1)/2;
+  if(nightA>0.03){
+    ctx.fillStyle='rgba(8,12,38,'+(nightA*0.5)+')';
+    ctx.fillRect(0,0,W,H);
+    for(var ns=0;ns<28;ns++){
+      var stx=(ns*137+40)%W, sty=(ns*89+15)%(H*0.55);
+      ctx.globalAlpha=nightA*(Math.sin(elapsed*2.5+ns)*0.35+0.6)*0.85;
+      ctx.fillStyle='#fff';
+      ctx.fillRect(stx,sty,1.8,1.8);
+    }
+    ctx.globalAlpha=1;
+  }
+
+  /* sun/moon glow */
+  var glow=ctx.createRadialGradient(W*0.78,H*0.14,4,W*0.78,H*0.14,95);
+  glow.addColorStop(0,biome.accent+'99'); glow.addColorStop(1,biome.accent+'00');
+  ctx.fillStyle=glow;
+  ctx.beginPath(); ctx.arc(W*0.78,H*0.14,95,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=biome.accent+'dd';
+  ctx.beginPath(); ctx.arc(W*0.78,H*0.14,18,0,Math.PI*2); ctx.fill();
+
+  /* stars for moon biome */
+  if(biome.weather==='fireflies'){
+    ctx.fillStyle='rgba(255,255,255,.6)';
+    for(var i=0;i<30;i++){
+      var sx=(i*137+50)%W, sy=(i*89+20)%(H*0.5);
+      var tw=Math.sin(elapsed*2+i)*0.4+0.6;
+      ctx.globalAlpha=tw*0.7;
+      ctx.fillRect(sx,sy,1.8,1.8);
+    }
+    ctx.globalAlpha=1;
+  }
+}
+function drawHills(yBase,amp,freq,scroll,col){
+  ctx.fillStyle=col;
+  ctx.beginPath(); ctx.moveTo(0,H);
+  for(var x=0;x<=W;x+=5){
+    var y=yBase+Math.sin((x+elapsed*scroll)*freq)*amp
+              +Math.sin((x+elapsed*scroll)*freq*2.7+1.3)*amp*0.35;
+    ctx.lineTo(x,y);
+  }
+  ctx.lineTo(W,H); ctx.closePath(); ctx.fill();
+}
+function drawParallax(biome){
+  drawHills(H*0.55,30,0.008,12,biome.hillFar+'88');
+  drawHills(H*0.62,22,0.012,25,biome.hillMid+'aa');
+
+  /* trees/structures on mid layer */
+  ctx.fillStyle=biome.hillMid;
+  for(var i=0;i<6;i++){
+    var tx=((i*110+30-elapsed*30)%(W+120))-60;
+    var th=40+((i*37)%30);
+    if(biome.obKind==='mushroom'){
+      ctx.fillStyle=biome.ob+'66';
+      ctx.fillRect(tx-3,H*0.6-th,6,th);
+      ctx.beginPath(); ctx.ellipse(tx,H*0.6-th,14,8,0,Math.PI,0); ctx.fill();
+    } else if(biome.obKind==='crystal'){
+      ctx.fillStyle=biome.ob+'55';
+      ctx.beginPath(); ctx.moveTo(tx-8,H*0.6);
+      ctx.lineTo(tx,H*0.6-th); ctx.lineTo(tx+8,H*0.6); ctx.fill();
+    } else {
+      ctx.fillStyle=biome.hillMid+'cc';
+      ctx.fillRect(tx-3,H*0.6-th,6,th);
+      ctx.beginPath(); ctx.arc(tx,H*0.6-th,12,0,Math.PI*2); ctx.fill();
+    }
+  }
+}
+function drawGround(biome){
+  /* layered ground */
+  var gg=ctx.createLinearGradient(0,H-groundH,0,H);
+  gg.addColorStop(0,biome.ground); gg.addColorStop(1,biome.groundDark);
+  ctx.fillStyle=gg; ctx.fillRect(0,H-groundH,W,groundH);
+  ctx.fillStyle=biome.groundDark; ctx.fillRect(0,H-groundH,W,5);
+
+  /* grass tufts */
+  ctx.strokeStyle=biome.groundDark; ctx.lineWidth=2; ctx.lineCap='round';
+  for(var i=0;i<16;i++){
+    var gx=((i*36-(elapsed*speed)%36+W*2)%(W+72))-36;
+    var sway=Math.sin(elapsed*2+i)*2;
+    ctx.beginPath();
+    ctx.moveTo(gx,H-groundH+5);
+    ctx.quadraticCurveTo(gx+sway,H-groundH-3,gx+sway*1.5,H-groundH-7);
+    ctx.stroke();
+  }
+
+  /* small flowers/details */
+  for(var j=0;j<8;j++){
+    var fx=((j*62+15-(elapsed*speed*0.8)%(62*8)+W*3)%(W+100))-50;
+    var fy=H-groundH+12+((j*17)%20);
+    ctx.fillStyle=biome.flowerCol+'88';
+    ctx.beginPath(); ctx.arc(fx,fy,2.5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=biome.accent+'66';
+    ctx.beginPath(); ctx.arc(fx,fy,1.2,0,Math.PI*2); ctx.fill();
+  }
+}
+
+/* ---- Obstacle drawing (improved textures) ---- */
+function drawObstaclePillar(x,topH,bottomY,biome,kind){
+  var w=OB_W;
+  if(kind==='thorn') { drawThorn(x,0,topH,w,biome,true); drawThorn(x,bottomY,H-groundH-bottomY,w,biome,false); }
+  else if(kind==='mushroom') { drawMushroomStalk(x,0,topH,w,biome,true); drawMushroomStalk(x,bottomY,H-groundH-bottomY,w,biome,false); }
+  else if(kind==='crystal') { drawCrystal(x,0,topH,w,biome,true); drawCrystal(x,bottomY,H-groundH-bottomY,w,biome,false); }
+  else if(kind==='vine') { drawVinePillar(x,0,topH,w,biome,true); drawVinePillar(x,bottomY,H-groundH-bottomY,w,biome,false); }
+  else { drawRockPillar(x,0,topH,w,biome,true); drawRockPillar(x,bottomY,H-groundH-bottomY,w,biome,false); }
+}
+function drawThorn(x,y,h,w,biome,fromTop){
+  var grad=ctx.createLinearGradient(x,0,x+w,0);
+  grad.addColorStop(0,biome.obDark); grad.addColorStop(0.35,biome.ob);
+  grad.addColorStop(0.65,biome.ob); grad.addColorStop(1,biome.obDark);
+  ctx.fillStyle=grad; ctx.fillRect(x,y,w,h);
+  /* vein texture */
+  ctx.strokeStyle=biome.obDark+'66'; ctx.lineWidth=1.5;
+  for(var v=0;v<3;v++){
+    var vx=x+w*0.2+v*w*0.3;
+    ctx.beginPath(); ctx.moveTo(vx,y);
+    ctx.quadraticCurveTo(vx+Math.sin(v*2)*6,y+h*0.5,vx,y+h);
+    ctx.stroke();
+  }
+  ctx.strokeStyle=biome.obDark; ctx.lineWidth=2.5; ctx.strokeRect(x,y,w,h);
+  /* thorn spikes */
+  ctx.fillStyle=biome.obDark;
+  var edgeY=fromTop?y+h:y, dir=fromTop?1:-1;
+  for(var i=0;i<3;i++){
+    var sx=x+w*0.18+i*(w*0.32);
+    ctx.beginPath();
+    ctx.moveTo(sx-7,edgeY); ctx.lineTo(sx,edgeY-dir*18); ctx.lineTo(sx+7,edgeY);
+    ctx.closePath(); ctx.fill();
+  }
+  /* rim light */
+  ctx.fillStyle='rgba(255,255,255,.12)';
+  ctx.fillRect(x+2,y,4,h);
+}
+function drawMushroomStalk(x,y,h,w,biome,fromTop){
+  /* stalk with texture */
+  var sg=ctx.createLinearGradient(x+w*0.28,0,x+w*0.72,0);
+  sg.addColorStop(0,biome.obDark); sg.addColorStop(0.5,biome.ob); sg.addColorStop(1,biome.obDark);
+  ctx.fillStyle=sg;
+  ctx.fillRect(x+w*0.26,y,w*0.48,h);
+  ctx.strokeStyle=biome.obDark; ctx.lineWidth=2;
+  ctx.strokeRect(x+w*0.26,y,w*0.48,h);
+  /* stalk lines */
+  ctx.strokeStyle=biome.obDark+'44'; ctx.lineWidth=1;
+  for(var l=0;l<3;l++){
+    var lx=x+w*0.34+l*w*0.14;
+    ctx.beginPath(); ctx.moveTo(lx,y); ctx.lineTo(lx,y+h); ctx.stroke();
+  }
+  /* cap */
+  var capY=fromTop?y+h:y;
+  var cg=ctx.createRadialGradient(x+w/2,capY,2,x+w/2,capY,w*0.6);
+  cg.addColorStop(0,biome.ob); cg.addColorStop(1,biome.obDark);
+  ctx.fillStyle=cg;
+  ctx.beginPath(); ctx.ellipse(x+w/2,capY,w*0.58,17,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle=biome.obDark; ctx.lineWidth=2; ctx.stroke();
+  /* spots */
+  ctx.fillStyle=biome.accent;
+  for(var i=0;i<4;i++){
+    ctx.beginPath();
+    ctx.arc(x+w/2+(i-1.5)*12,capY-2+((i%2)*4),2.5+((i%3)),0,Math.PI*2);
+    ctx.fill();
+  }
+  /* gills under cap */
+  ctx.strokeStyle=biome.obDark+'55'; ctx.lineWidth=1;
+  for(var g2=0;g2<5;g2++){
+    var gx2=x+w*0.3+g2*w*0.1;
+    ctx.beginPath(); ctx.moveTo(gx2,capY); ctx.lineTo(gx2,capY+(fromTop?6:-6)); ctx.stroke();
+  }
+}
+function drawCrystal(x,y,h,w,biome,fromTop){
+  var grad=ctx.createLinearGradient(x,0,x+w,0);
+  grad.addColorStop(0,biome.obDark); grad.addColorStop(0.4,biome.ob);
+  grad.addColorStop(0.6,biome.ob); grad.addColorStop(1,biome.obDark);
+  ctx.fillStyle=grad;
+  ctx.beginPath();
+  if(fromTop){
+    ctx.moveTo(x,y); ctx.lineTo(x+w,y);
+    ctx.lineTo(x+w*0.72,y+h); ctx.lineTo(x+w*0.5,y+h-12);
+    ctx.lineTo(x+w*0.28,y+h);
+  } else {
+    ctx.moveTo(x+w*0.28,y); ctx.lineTo(x+w*0.5,y+12);
+    ctx.lineTo(x+w*0.72,y); ctx.lineTo(x+w,y+h); ctx.lineTo(x,y+h);
+  }
+  ctx.closePath(); ctx.fill();
+  /* facet lines */
+  ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.lineWidth=1.5;
+  ctx.beginPath();
+  ctx.moveTo(x+w*0.5,y+(fromTop?0:h));
+  ctx.lineTo(x+w*0.5,y+(fromTop?h-8:8));
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x+w*0.3,y+(fromTop?h*0.3:h*0.7));
+  ctx.lineTo(x+w*0.7,y+(fromTop?h*0.5:h*0.5));
+  ctx.stroke();
+  /* glow pulse */
+  var pulse=Math.sin(elapsed*3)*0.15+0.2;
+  ctx.fillStyle='rgba(255,255,255,'+pulse+')';
+  ctx.beginPath();
+  var tipY=fromTop?y+h-6:y+6;
+  ctx.arc(x+w*0.5,tipY,5,0,Math.PI*2); ctx.fill();
+  /* outline */
+  ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.lineWidth=1.5;
+  ctx.stroke();
+}
+function drawVinePillar(x,y,h,w,biome,fromTop){
+  /* wooden post */
+  var vg=ctx.createLinearGradient(x,0,x+w,0);
+  vg.addColorStop(0,biome.obDark); vg.addColorStop(0.5,biome.ob); vg.addColorStop(1,biome.obDark);
+  ctx.fillStyle=vg;
+  ctx.fillRect(x+w*0.2,y,w*0.6,h);
+  ctx.strokeStyle=biome.obDark; ctx.lineWidth=2;
+  ctx.strokeRect(x+w*0.2,y,w*0.6,h);
+  /* bark texture */
+  ctx.strokeStyle=biome.obDark+'55'; ctx.lineWidth=1;
+  for(var b=0;b<4;b++){
+    var by=y+h*0.15+b*h*0.22;
+    ctx.beginPath(); ctx.moveTo(x+w*0.25,by);
+    ctx.quadraticCurveTo(x+w*0.5,by+4,x+w*0.75,by); ctx.stroke();
+  }
+  /* leaves/blossoms at tip */
+  var tipY=fromTop?y+h:y;
+  var dir=fromTop?1:-1;
+  ctx.fillStyle=biome.flowerCol;
+  for(var i=0;i<4;i++){
+    var a=i/4*Math.PI*2+elapsed*0.5;
+    ctx.beginPath();
+    ctx.ellipse(x+w/2+Math.cos(a)*12,tipY+dir*4+Math.sin(a)*6,5,3.5,a,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.fillStyle=biome.accent;
+  ctx.beginPath(); ctx.arc(x+w/2,tipY+dir*4,4,0,Math.PI*2); ctx.fill();
+}
+function drawRockPillar(x,y,h,w,biome,fromTop){
+  var rg=ctx.createLinearGradient(x,0,x+w,0);
+  rg.addColorStop(0,biome.obDark); rg.addColorStop(0.4,biome.ob);
+  rg.addColorStop(0.7,biome.ob); rg.addColorStop(1,biome.obDark);
+  ctx.fillStyle=rg;
+  ctx.beginPath();
+  if(fromTop){
+    ctx.moveTo(x-4,y); ctx.lineTo(x+w+4,y);
+    ctx.lineTo(x+w*0.8,y+h*0.7); ctx.lineTo(x+w*0.6,y+h);
+    ctx.lineTo(x+w*0.35,y+h*0.85); ctx.lineTo(x+w*0.15,y+h);
+  } else {
+    ctx.moveTo(x+w*0.15,y); ctx.lineTo(x+w*0.35,y+h*0.15);
+    ctx.lineTo(x+w*0.6,y); ctx.lineTo(x+w*0.8,y+h*0.3);
+    ctx.lineTo(x+w+4,y+h); ctx.lineTo(x-4,y+h);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle=biome.obDark; ctx.lineWidth=2; ctx.stroke();
+  /* lava cracks */
+  ctx.strokeStyle=biome.accent+'88'; ctx.lineWidth=1.5;
+  var cy=y+h*0.3;
+  ctx.beginPath(); ctx.moveTo(x+w*0.3,cy);
+  ctx.lineTo(x+w*0.5,cy+h*0.15); ctx.lineTo(x+w*0.4,cy+h*0.3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x+w*0.6,cy+h*0.1);
+  ctx.lineTo(x+w*0.7,cy+h*0.25); ctx.stroke();
+  /* ember glow at cracks */
+  var ep=Math.sin(elapsed*4)*0.3+0.4;
+  ctx.fillStyle='rgba(255,160,60,'+ep+')';
+  ctx.beginPath(); ctx.arc(x+w*0.5,cy+h*0.15,3,0,Math.PI*2); ctx.fill();
+}
+
+/* ---- Coins ---- */
+function drawCoin(x,y,phase,accent,golden){
+  ctx.save(); ctx.translate(x,y);
+  var s=1+Math.sin(phase)*0.1;
+  ctx.scale(s,1);
+  var r=golden?13:10;
+  var g=ctx.createRadialGradient(-2,-2,1,0,0,r);
+  if(golden){ g.addColorStop(0,'#fffde0'); g.addColorStop(1,'#ffb347'); }
+  else { g.addColorStop(0,'#fff8dc'); g.addColorStop(1,accent||'#ffd23f'); }
+  ctx.fillStyle=g;
+  ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle=golden?'#d4880b':'#b8860b'; ctx.lineWidth=2; ctx.stroke();
+  if(golden){
+    ctx.fillStyle='#fff';
+    ctx.font='bold 10px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('★',0,0.5);
+  } else {
+    ctx.fillStyle='rgba(255,255,255,.5)';
+    ctx.beginPath(); ctx.arc(-2.5,-2.5,2.5,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ---- Power-up orb ---- */
+function drawPowerOrb(pu){
+  ctx.save(); ctx.translate(pu.x,pu.y);
+  var pulse=Math.sin(elapsed*4+pu.x)*0.15+1;
+  ctx.scale(pulse,pulse);
+  /* glow */
+  var g=ctx.createRadialGradient(0,0,3,0,0,20);
+  g.addColorStop(0,pu.def.color+'aa'); g.addColorStop(1,pu.def.color+'00');
+  ctx.fillStyle=g;
+  ctx.beginPath(); ctx.arc(0,0,20,0,Math.PI*2); ctx.fill();
+  /* orb */
+  var og=ctx.createRadialGradient(-3,-3,2,0,0,13);
+  og.addColorStop(0,'#fff'); og.addColorStop(1,pu.def.color);
+  ctx.fillStyle=og;
+  ctx.beginPath(); ctx.arc(0,0,13,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=2; ctx.stroke();
+  /* icon */
+  ctx.font='13px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(pu.def.ic,0,1);
+  ctx.restore();
+}
+
+/* ---- Particles ---- */
+function drawParticle(p){
+  ctx.save();
+  ctx.globalAlpha=Math.max(0,p.life/p.maxLife);
+  ctx.fillStyle=p.color;
+  if(p.shape==='petal'){
+    ctx.translate(p.x,p.y); ctx.rotate(p.rot||0);
+    ctx.beginPath(); ctx.ellipse(0,0,p.r*1.4,p.r*0.7,0,0,Math.PI*2); ctx.fill();
+  } else if(p.shape==='spark'){
+    ctx.translate(p.x,p.y);
+    ctx.beginPath();
+    ctx.moveTo(0,-p.r*1.5); ctx.lineTo(p.r*0.4,0);
+    ctx.lineTo(0,p.r*1.5); ctx.lineTo(-p.r*0.4,0);
+    ctx.closePath(); ctx.fill();
+  } else {
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* =========================================================
+   10. WEATHER SYSTEM
+========================================================= */
+function spawnWeather(biome){
+  var w=biome.weather;
+  if(w==='pollen'&&Math.random()<0.06){
+    weatherParts.push({x:W+10,y:rand(0,H*0.7),r:rand(1.5,3),vx:-speed*0.25-15,vy:rand(-8,8),
+      life:4,maxLife:4,color:'rgba(255,240,180,.5)',shape:'dot'});
+  } else if(w==='spores'&&Math.random()<0.05){
+    weatherParts.push({x:rand(0,W),y:H+5,r:rand(2,4),vx:rand(-10,10),vy:rand(-30,-15),
+      life:4,maxLife:4,color:'rgba(200,160,255,.4)',shape:'dot'});
+  } else if(w==='sparkle'&&Math.random()<0.04){
+    weatherParts.push({x:rand(0,W),y:rand(0,H*0.6),r:rand(1,2.5),vx:rand(-5,5),vy:rand(-5,5),
+      life:1.5,maxLife:1.5,color:'rgba(200,240,255,.7)',shape:'spark',rot:rand(0,6)});
+  } else if(w==='petals'&&Math.random()<0.07){
+    weatherParts.push({x:W+10,y:rand(-20,H*0.4),r:rand(3,5),vx:-speed*0.3-20,vy:rand(15,35),
+      life:5,maxLife:5,color:'rgba(255,183,201,.6)',shape:'petal',rot:rand(0,6)});
+  } else if(w==='embers'&&Math.random()<0.06){
+    weatherParts.push({x:rand(0,W),y:H+5,r:rand(1.5,3),vx:rand(-15,15),vy:rand(-60,-30),
+      life:3,maxLife:3,color:Math.random()<0.5?'rgba(255,160,60,.7)':'rgba(255,100,40,.6)',shape:'dot'});
+  } else if(w==='fireflies'&&Math.random()<0.03){
+    weatherParts.push({x:rand(0,W),y:rand(H*0.2,H*0.7),r:rand(1.5,2.5),vx:rand(-12,12),vy:rand(-12,12),
+      life:3,maxLife:3,color:'rgba(255,240,160,.8)',shape:'dot'});
+  } else if(w==='clouds'&&Math.random()<0.02){
+    weatherParts.push({x:W+40,y:rand(20,H*0.3),r:rand(18,30),vx:-speed*0.15-10,vy:0,
+      life:8,maxLife:8,color:'rgba(255,255,255,.35)',shape:'dot'});
+  }
+}
+function updateWeather(dt){
+  for(var i=weatherParts.length-1;i>=0;i--){
+    var p=weatherParts[i];
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt;
+    if(p.rot!==undefined) p.rot+=dt*1.5;
+    if(p.life<=0||p.x<-50||p.y<-50||p.y>H+50) weatherParts.splice(i,1);
+  }
+}
+
+/* =========================================================
+   11. SPAWNING
+========================================================= */
+function spawnObstacle(){
+  var biome=biomeFor(score);
+  var kind=biome.obKind;
+  var gap=GAP_MAX-Math.min(42,score*0.6);
+  gap=Math.max(GAP_MIN,gap);
+  var margin=60;
+  var topH=margin+Math.random()*(H-groundH-gap-margin*2);
+  var bottomY=topH+gap;
+  var o={x:W+40,w:OB_W,topH:topH,bottomY:bottomY,kind:kind,passed:false};
+  obstacles.push(o);
+
+  /* coins in gap */
+  var coinCount=Math.random()<0.65?1:0;
+  if(Math.random()<0.12) coinCount=2;
+  for(var c=0;c<coinCount;c++){
+    var golden=Math.random()<0.08;
+    coinsArr.push({
+      x:o.x+o.w/2+rand(-15,15),
+      y:topH+gap*0.3+c*gap*0.35,
+      r:golden?13:10, golden:golden, collected:false
+    });
+  }
+
+  /* power-up spawn */
+  if(Math.random()<0.07){
+    var pt=POWERUP_TYPES[Math.floor(Math.random()*POWERUP_TYPES.length)];
+    powerups.push({x:o.x+o.w/2,y:topH+gap*0.5,r:13,def:pt,collected:false});
+  }
+}
+
+/* =========================================================
+   12. GAME LOOP
+========================================================= */
+function endRun(){
+  state=STATE.OVER;
+  Audio_.lose();
+  $('pauseBtn').classList.remove('show');
+  $('readyTap').classList.remove('show');
+  $('powerHud').innerHTML='';
+
+  /* XP */
+  runXpEarned=score*2+runCoins;
+  Save.data.xp+=runXpEarned;
+  var leveledUp=false;
+  while(Save.data.xp>=Save.data.level*Save.data.level*50){
+    Save.data.xp-=Save.data.level*Save.data.level*50;
+    Save.data.level++;
+    leveledUp=true;
+  }
+
+  Save.data.runsPlayed++;
+  Save.data.totalCoins+=runCoins;
+  awardEssences();
+  Save.data.coins+=runCoins;
+  if(score>Save.data.bestScore) Save.data.bestScore=score;
+  if(comboCount>Save.data.bestCombo) Save.data.bestCombo=comboCount;
+  Save.save();
+
+  /* daily progress */
+  updateDailyProg();
+
+  checkAchievements();
+  if(leveledUp){ Audio_.levelup(); popToast('⬆️ Level Up! Now Lv '+Save.data.level); }
+
+  /* stars */
+  var stars=1;
+  if(score>=Save.data.bestScore*0.5&&score>0) stars=2;
+  if(score>=Save.data.bestScore&&score>0) stars=3;
+  var starEls=$('overStars').children;
+  for(var i=0;i<3;i++){
+    starEls[i].classList.toggle('on',i<stars);
+  }
+
+  $('overScore').textContent=score;
+  $('overBest').textContent=Save.data.bestScore;
+  $('overCoins').textContent=runCoins;
+  $('overXp').textContent='+'+runXpEarned;
+  $('overTitle').textContent=(score>=Save.data.bestScore&&score>0)?'🌟 NEW BEST!':'WILTED...';
+  showScreen('scrOver');
+}
+
+function updatePlaying(dt){
+  elapsed+=dt;
+  var effSpeed=speed*(slowTimer>0?0.55:1);
+
+  player.vy+=GRAVITY*dt;
+  player.y+=player.vy*dt;
+  player.rot=Math.max(-0.5,Math.min(1.1,player.vy/500));
+  player.squash=lerp(player.squash,1,dt*8);
+
+  if(player.y-player.r<0){player.y=player.r;player.vy=0;}
+  if(player.y+player.r>H-groundH){
+    player.y=H-groundH-player.r;
+    crashOut(); return;
+  }
+
+  /* spawning */
+  spawnTimer-=dt;
+  if(spawnTimer<=0){
+    spawnObstacle();
+    spawnTimer=(OB_W+190)/effSpeed;
+  }
+  speed=SPEED_BASE+Math.min(140,score*3.2);
+
+  /* biome transition toast */
+  var curBiome=biomeFor(score);
+  if(curBiome.name!==lastBiomeName){
+    lastBiomeName=curBiome.name;
+    showBiomeToast(curBiome.name);
+    Audio_.milestone();
+  }
+
+  /* milestones */
+  while(milestoneIdx<MILESTONES.length&&score>=MILESTONES[milestoneIdx].at){
+    popToast(MILESTONES[milestoneIdx].msg);
+    Audio_.milestone();
+    milestoneIdx++;
+  }
+
+  /* obstacles */
+  for(var i=obstacles.length-1;i>=0;i--){
+    var o=obstacles[i];
+    o.x-=effSpeed*dt;
+
+    var px=player.x,py=player.y,pr=player.r*0.72;
+    var hitTop=(px+pr>o.x&&px-pr<o.x+o.w&&py-pr<o.topH);
+    var hitBottom=(px+pr>o.x&&px-pr<o.x+o.w&&py+pr>o.bottomY);
+    if(hitTop||hitBottom){
+      if(shieldActive){
+        shieldActive=false;
+        Audio_.shieldBreak();
+        addFloat(px,py-30,'🛡️ Blocked!','#4fb3e8',13);
+        for(var sb=0;sb<10;sb++){
+          particles.push({x:px,y:py,r:rand(2,4),vx:rand(-150,150),vy:rand(-150,150),
+            life:0.5,maxLife:0.5,color:'#4fb3e8',shape:'spark',rot:rand(0,6)});
+        }
+        o.x=-200; /* remove obstacle */
+      } else {
+        crashOut(); return;
+      }
+    }
+
+    if(!o.passed&&o.x+o.w<px-pr){
+      o.passed=true;
+      score++;
+      comboCount++;
+      comboTimer=1.6;
+      Audio_.combo(comboCount);
+      showCombo();
+      addFloat(px+30,py-20,'+1','#fff',12);
+      /* collection discovery chance */
+      tryDiscover(curBiome);
+    }
+    if(o.x+o.w<-40) obstacles.splice(i,1);
+  }
+
+  /* coins */
+  for(var ci=coinsArr.length-1;ci>=0;ci--){
+    var cn=coinsArr[ci];
+    cn.x-=effSpeed*dt;
+    /* magnet attraction */
+    if(magnetTimer>0&&!cn.collected){
+      var mdx=player.x-cn.x,mdy=player.y-cn.y;
+      var md=Math.sqrt(mdx*mdx+mdy*mdy);
+      if(md<160&&md>1){
+        cn.x+=mdx/md*220*dt;
+        cn.y+=mdy/md*220*dt;
+      }
+    }
+    if(!cn.collected){
+      var cdx=player.x-cn.x,cdy=player.y-cn.y;
+      if(Math.sqrt(cdx*cdx+cdy*cdy)<player.r+cn.r){
+        cn.collected=true;
+        var val=cn.golden?5:1;
+        runCoins+=val;
+        if(cn.golden){Audio_.goldCoin();addFloat(cn.x,cn.y-15,'+5 💧','#ffb347',14);}
+        else{Audio_.coin();addFloat(cn.x,cn.y-15,'+1','#ffd23f',11);}
+        for(var cp=0;cp<5;cp++){
+          particles.push({x:cn.x,y:cn.y,r:rand(1.5,3),vx:rand(-60,60),vy:rand(-80,20),
+            life:0.4,maxLife:0.4,color:cn.golden?'#ffb347':'#ffd23f',shape:'spark',rot:rand(0,6)});
+        }
+      }
+    }
+    if(cn.x<-30||cn.collected) coinsArr.splice(ci,1);
+  }
+
+  /* power-ups */
+  for(var pi=powerups.length-1;pi>=0;pi--){
+    var pu=powerups[pi];
+    pu.x-=effSpeed*dt;
+    if(!pu.collected){
+      var pdx=player.x-pu.x,pdy=player.y-pu.y;
+      if(Math.sqrt(pdx*pdx+pdy*pdy)<player.r+pu.r+4){
+        pu.collected=true;
+        Audio_.powerup();
+        Save.data.powerupsUsed=(Save.data.powerupsUsed||0)+1;
+        if(pu.def.id==='shield'){shieldActive=true;addFloat(pu.x,pu.y-20,'🛡️ Shield!','#4fb3e8',14);}
+        else if(pu.def.id==='magnet'){magnetTimer=5;addFloat(pu.x,pu.y-20,'🧲 Magnet!','#ff7a59',14);}
+        else if(pu.def.id==='slow'){slowTimer=4;addFloat(pu.x,pu.y-20,'🐌 Slow-Mo!','#6fcf5a',14);}
+        for(var pp=0;pp<8;pp++){
+          particles.push({x:pu.x,y:pu.y,r:rand(2,4),vx:rand(-100,100),vy:rand(-100,100),
+            life:0.5,maxLife:0.5,color:pu.def.color,shape:'spark',rot:rand(0,6)});
+        }
+        checkAchievements();
+      }
+    }
+    if(pu.x<-30||pu.collected) powerups.splice(pi,1);
+  }
+
+  /* power-up timers */
+  if(magnetTimer>0) magnetTimer-=dt;
+  if(slowTimer>0) slowTimer-=dt;
+  refreshPowerHud();
+
+  /* combo timer */
+  if(comboTimer>0){
+    comboTimer-=dt;
+    if(comboTimer<=0){comboCount=0;hideCombo();}
+  }
+
+  /* trail particles */
+  trailTimer-=dt;
+  if(trailTimer<=0){
+    trailTimer=0.06;
+    var trail=TRAILS.find(function(t){return t.id===Save.data.equippedTrail;})||TRAILS[0];
+    if(trail.type!=='none'){
+      var tc=trail.color;
+      if(trail.type==='rainbow') tc='hsl('+((elapsed*200)%360)+',90%,65%)';
+      particles.push({x:player.x-14,y:player.y+rand(-6,6),r:rand(1.5,3.5),
+        vx:rand(-30,-10),vy:rand(-15,15),life:0.5,maxLife:0.5,color:tc,
+        shape:trail.type==='petal'?'petal':trail.type==='spark'?'spark':trail.type==='leaf'?'petal':'dot',
+        rot:rand(0,6)});
+    }
+  }
+
+  /* ambient + weather */
+  spawnWeather(curBiome);
+  updateWeather(dt);
+
+  /* general particles */
+  for(var j=particles.length-1;j>=0;j--){
+    var p=particles[j];
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt;
+    if(p.vy!==undefined&&p.shape!=='petal') p.vy+=200*dt;
+    if(p.rot!==undefined) p.rot+=dt*3;
+    if(p.life<=0) particles.splice(j,1);
+  }
+
+  /* floating texts */
+  for(var fi=floatingTexts.length-1;fi>=0;fi--){
+    var ft=floatingTexts[fi];
+    ft.y+=ft.vy*dt; ft.life-=dt*1.2;
+    if(ft.life<=0) floatingTexts.splice(fi,1);
+  }
+
+  /* screen shake decay */
+  if(shakeTimer>0) shakeTimer-=dt;
+
+  /* 🦋 butterfly companion follows you */
+  bfX+=(player.x-42-bfX)*Math.min(1,dt*3);
+  bfY+=(player.y+Math.sin(elapsed*2.6)*20-bfY)*Math.min(1,dt*3);
+
+  refreshHud();
+}
+
+function crashOut(){
+  Audio_.hit();
+  if(Save.data.settings.shake){shakeTimer=0.35;shakeMag=8;}
+  for(var i=0;i<18;i++){
+    particles.push({x:player.x,y:player.y,r:rand(2,4.5),
+      vx:rand(-200,200),vy:rand(-200,100),life:0.6,maxLife:0.6,
+      color:i%3===0?'#ff7a59':i%3===1?'#ffd23f':'#6fcf5a',shape:'dot'});
+  }
+  endRun();
+}
+
+function showCombo(){
+  var el=$('comboBadge');
+  el.textContent='COMBO x'+comboCount;
+  el.classList.add('show');
+  if(Save.data.settings.comboChime&&[5,10,15,20,25,30].indexOf(comboCount)>=0){SndFx.comboChime(comboCount);}
+}
+function hideCombo(){$('comboBadge').classList.remove('show');}
+
+/* ---- Collection discovery ---- */
+function tryDiscover(biome){
+  if(Math.random()>0.06) return;
+  var bi=BIOMES.indexOf(biome);
+  var pool=COLLECTION.filter(function(c){return c.biome===bi&&!Save.data.collection[c.id];});
+  if(pool.length===0) return;
+  var disc=pool[Math.floor(Math.random()*pool.length)];
+  Save.data.collection[disc.id]=true;
+  Save.save();
+  Audio_.discover();
+  popToast('📖 Discovered: '+disc.ic+' '+disc.name+'!');
+  checkAchievements();
+}
+
+/* =========================================================
+   13. RENDER
+========================================================= */
+function render(){
+  var biome=biomeFor(score);
+  ctx.save();
+
+  /* screen shake */
+  if(shakeTimer>0){
+    var sx=(Math.random()-0.5)*shakeMag*(shakeTimer/0.35);
+    var sy=(Math.random()-0.5)*shakeMag*(shakeTimer/0.35);
+    ctx.translate(sx,sy);
+  }
+
+  drawSky(biome);
+  drawParallax(biome);
+
+  /* weather behind obstacles */
+  for(var wi=0;wi<weatherParts.length;wi++) drawParticle(weatherParts[wi]);
+
+  /* obstacles */
+  for(var i=0;i<obstacles.length;i++){
+    var o=obstacles[i];
+    drawObstaclePillar(o.x,o.topH,o.bottomY,biome,o.kind);
+  }
+
+  /* coins */
+  for(var ci=0;ci<coinsArr.length;ci++){
+    var cn=coinsArr[ci];
+    if(!cn.collected) drawCoin(cn.x,cn.y,elapsed*4,biome.accent,cn.golden);
+  }
+
+  /* power-ups */
+  for(var pi=0;pi<powerups.length;pi++){
+    if(!powerups[pi].collected) drawPowerOrb(powerups[pi]);
+  }
+
+  /* particles */
+  for(var k=0;k<particles.length;k++) drawParticle(particles[k]);
+
+  drawGround(biome);
+
+  /* shield bubble */
+  if(shieldActive){
+    ctx.strokeStyle='rgba(79,179,232,.6)';
+    ctx.lineWidth=3;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath();
+    ctx.arc(player.x,player.y,player.r+10+Math.sin(elapsed*5)*2,0,Math.PI*2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(79,179,232,.08)';
+    ctx.beginPath();
+    ctx.arc(player.x,player.y,player.r+10,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  /* slow-mo tint */
+  if(slowTimer>0){
+    ctx.fillStyle='rgba(100,200,255,.06)';
+    ctx.fillRect(0,0,W,H);
+  }
+
+  /* player */
+  var skin=SKINS.find(function(s){return s.id===Save.data.equipped;})||SKINS[0];
+  drawSprout(ctx,player.x,player.y,1,skin.colors,elapsed*3,player.rot,player.squash);
+
+  /* 🦋 butterfly companion */
+  var bWing=Math.sin(elapsed*14)*4;
+  ctx.save();
+  ctx.translate(bfX,bfY+Math.sin(elapsed*4)*3);
+  ctx.fillStyle='#ffb7d9';
+  ctx.beginPath(); ctx.ellipse(-4,0,4.5,3+bWing*0.3,-0.4,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(4,0,4.5,3+bWing*0.3,0.4,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#8a5a4a';
+  ctx.beginPath(); ctx.ellipse(0,0,1.6,4,0,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  /* floating texts */
+  for(var fi=0;fi<floatingTexts.length;fi++){
+    var ft=floatingTexts[fi];
+    ctx.save();
+    ctx.globalAlpha=Math.max(0,ft.life);
+    ctx.font='900 '+ft.size+'px "Segoe UI",sans-serif';
+    ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,.5)';
+    ctx.lineWidth=3;
+    ctx.strokeText(ft.txt,ft.x,ft.y);
+    ctx.fillStyle=ft.color;
+    ctx.fillText(ft.txt,ft.x,ft.y);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/* ---- Menu sprout preview ---- */
+var menuAnimT=0;
+function renderMenuSprout(){
+  var cv=$('menuSproutCv');
+  if(!cv) return;
+  var c=cv.getContext('2d');
+  var w=cv.width,h=cv.height;
+  c.clearRect(0,0,w,h);
+  var skin=SKINS.find(function(s){return s.id===Save.data.equipped;})||SKINS[0];
+  var bobY=Math.sin(menuAnimT*2)*5;
+  drawSprout(c,w/2,h/2+8+bobY,1.6,skin.colors,menuAnimT*3,0,1);
+  /* trail preview */
+  var trail=TRAILS.find(function(t){return t.id===Save.data.equippedTrail;})||TRAILS[0];
+  if(trail.type!=='none'){
+    for(var i=0;i<4;i++){
+      var tx=w/2-30-i*14,ty=h/2+8+Math.sin(menuAnimT*3+i)*4;
+      c.globalAlpha=0.5-i*0.1;
+      c.fillStyle=trail.type==='rainbow'?'hsl('+((menuAnimT*100+i*40)%360)+',90%,65%)':trail.color;
+      c.beginPath(); c.arc(tx,ty,3-i*0.4,0,Math.PI*2); c.fill();
+    }
+    c.globalAlpha=1;
+  }
+}
+
+var lastFrame=0;
+function loop(ts){
+  var dt=Math.min(0.033,(ts-lastFrame)/1000||0);
+  lastFrame=ts;
+  menuAnimT+=dt;
+
+  if(state===STATE.PLAYING){
+    updatePlaying(dt);
+  } else if(state===STATE.READY){
+    elapsed+=dt;
+    /* idle bob */
+    player.y=H*0.42+Math.sin(elapsed*2)*8;
+    player.rot=0;
+    player.squash=1;
+    updateWeather(dt);
+    spawnWeather(biomeFor(0));
+  }
+
+  if(state===STATE.PLAYING||state===STATE.READY||state===STATE.PAUSED){
+    render();
+  }
+
+  if(state===STATE.MENU){
+    renderMenuSprout();
+  }
+
+  requestAnimationFrame(loop);
+}
+
+/* =========================================================
+   14. INPUT
+========================================================= */
+function doJump(){
+  if(tutActive) return;
+  if(state===STATE.READY){
+    state=STATE.PLAYING;
+    $('readyTap').classList.remove('show');
+  }
+  if(state!==STATE.PLAYING) return;
+  player.vy=JUMP_V;
+  player.squash=0.7;
+  Audio_.jump();
+  for(var i=0;i<4;i++){
+    particles.push({x:player.x-10,y:player.y+16,r:rand(1.5,3),
+      vx:rand(-30,30),vy:rand(30,70),life:0.35,maxLife:0.35,
+      color:'rgba(255,255,255,.6)',shape:'dot'});
+  }
+}
+cvs.addEventListener('pointerdown',function(e){
+  e.preventDefault();
+  Audio_.unlock();
+  doJump();
+},{passive:false});
+document.addEventListener('keydown',function(e){
+  if(e.code==='Space'){e.preventDefault();Audio_.unlock();doJump();}
+});
+
+/* =========================================================
+   15. SCREEN NAV / BUTTONS
+========================================================= */
+function goPlay(){
+  Audio_.unlock(); Audio_.click();
+  resize(); resetRun();
+  state=STATE.READY;
+  showScreen(null);
+  $('pauseBtn').classList.add('show');
+  $('powerHud').innerHTML='';
+  if(!Save.data.tutDone){
+    showTutorial();
+  } else {
+    $('readyTap').classList.add('show');
+  }
+  refreshHud();
+}
+$('btnPlay').addEventListener('click',goPlay);
+$('btnShop').addEventListener('click',function(){Audio_.click();renderShop();showScreen('scrShop');});
+$('btnAch').addEventListener('click',function(){Audio_.click();renderAch();showScreen('scrAch');});
+$('btnDaily').addEventListener('click',function(){Audio_.click();renderDaily();showScreen('scrDaily');});
+$('btnColl').addEventListener('click',function(){Audio_.click();renderColl();showScreen('scrColl');});
+/* ===== 🍯 RECIPES / CAULDRON ===== */
+var ESSENCE_TYPES=[{id:'petal',ic:'🌸'},{id:'spore',ic:'🍄'},{id:'shard',ic:'💎'},{id:'leaf',ic:'🌿'},{id:'spark',ic:'⚡'},{id:'frost',ic:'❄️'}];
+var RECIPES=[
+  {name:'Bloom Bomb',ic:'💥',need:{petal:3},coins:50,xp:20},
+  {name:'Spore Cloud',ic:'☁️',need:{spore:3},coins:80,xp:30},
+  {name:'Crystal Heart',ic:'💖',need:{shard:3},coins:120,xp:50},
+  {name:'Forest Blend',ic:'🍵',need:{leaf:2,spore:1},coins:60,xp:25},
+  {name:'Storm Brew',ic:'🌩️',need:{spark:2,frost:1},coins:90,xp:35},
+  {name:'Mystery Mix',ic:'🎲',need:{petal:1,spore:1,shard:1},coins:0,xp:0,special:1},
+  {name:'Elixir of Life',ic:'🧪',need:{leaf:1,spark:1,frost:1},coins:100,xp:40},
+  {name:'Prism Potion',ic:'🌈',need:{petal:1,shard:1,frost:1},coins:150,xp:60}
+];
+function ensureEssences(){
+  if(!Save.data.essences){Save.data.essences={petal:0,spore:0,shard:0,leaf:0,spark:0,frost:0};}
+}
+function awardEssences(){
+  ensureEssences();
+  var n=Math.min(6,Math.floor(score/8));
+  if(n<=0)return;
+  var got=[],i;
+  for(i=0;i<n;i++){
+    var t=ESSENCE_TYPES[Math.floor(Math.random()*ESSENCE_TYPES.length)];
+    Save.data.essences[t.id]++;
+    got.push(t.ic);
+  }
+  Save.save();
+  popToast('✨ +'+n+' essences: '+got.join(' '));
+}
+function renderCauldron(){
+  ensureEssences();
+  var er=$('essenceRow');er.innerHTML='';
+  ESSENCE_TYPES.forEach(function(t){
+    var d=document.createElement('div');
+    d.style.cssText='text-align:center;font-size:.7rem;font-weight:900;color:var(--ink);';
+    d.innerHTML='<div style="font-size:1.3rem;">'+t.ic+'</div>'+Save.data.essences[t.id];
+    er.appendChild(d);
+  });
+  var rl=$('recipeList');rl.innerHTML='';
+  RECIPES.forEach(function(r,idx){
+    var can=true,needTxt=[],k;
+    for(k in r.need){
+      if((Save.data.essences[k]||0)<r.need[k])can=false;
+      var tt=ESSENCE_TYPES.filter(function(t){return t.id===k;})[0];
+      needTxt.push(tt.ic+'x'+r.need[k]);
+    }
+    var reward=r.special?'❓ Random!':('💧'+r.coins+' +'+r.xp+'XP');
+    var row=document.createElement('div');
+    row.className='dailyRow';
+    row.innerHTML='<div class="dTxt"><b>'+r.ic+' '+r.name+'</b><small>'+needTxt.join(' ')+' → '+reward+'</small></div>';
+    var btn=document.createElement('button');
+    btn.className='btn small '+(can?'leaf':'plain');
+    btn.disabled=!can;
+    btn.textContent='CRAFT';
+    btn.addEventListener('click',function(){craftRecipe(idx);});
+    row.appendChild(btn);
+    rl.appendChild(row);
+  });
+}
+function craftRecipe(idx){
+  var r=RECIPES[idx],k;
+  ensureEssences();
+  for(k in r.need){if((Save.data.essences[k]||0)<r.need[k]){popToast('Not enough essences!');return;}}
+  for(k in r.need){Save.data.essences[k]-=r.need[k];}
+  var coins=r.coins,xp=r.xp;
+  if(r.special){coins=30+Math.floor(Math.random()*120);xp=10+Math.floor(Math.random()*40);}
+  Save.data.coins+=coins;Save.data.xp+=xp;Save.save();
+  Audio_.achieve();
+  popToast('🍯 Crafted '+r.name+'! +'+coins+'💧 +'+xp+'XP');
+  renderCauldron();refreshMenu();
+}
+if($('btnCauldron')){$('btnCauldron').addEventListener('click',function(){Audio_.click();renderCauldron();showScreen('scrCauldron');});}
+
+/* ===== 🛡️ BOOSTS & 🎨 THEMES (new shop tabs) ===== */
+var BOOSTS=[
+  {id:'shield',name:'Shield Start',ic:'🛡️',price:80,desc:'Start every run with a shield'},
+  {id:'magnet',name:'Magnet Start',ic:'🧲',price:100,desc:'Start every run with 4s magnet'},
+  {id:'slow',name:'Slow Start',ic:'🐌',price:90,desc:'Start every run with 3s slow-mo'},
+  {id:'headstart',name:'Head Start',ic:'🚀',price:120,desc:'Start every run at score 5'}
+];
+var THEMES=[
+  {id:'forest',name:'Forest',price:0,vars:{'--leaf':'#6fcf5a','--gold':'#ffd23f','--coral':'#ff7a59','--sky':'#4fb3e8'}},
+  {id:'sunset',name:'Sunset',price:150,vars:{'--leaf':'#ff9a5c','--gold':'#ffb347','--coral':'#ff6a6a','--sky':'#ffa07a'}},
+  {id:'ocean',name:'Ocean',price:150,vars:{'--leaf':'#4fc4c4','--gold':'#7fe0ff','--coral':'#4a9ae8','--sky':'#5ac8e8'}},
+  {id:'candy',name:'Candy',price:200,vars:{'--leaf':'#ff8ac4','--gold':'#ffd23f','--coral':'#ff6ab8','--sky':'#c8a0ff'}},
+  {id:'midnight',name:'Midnight',price:250,vars:{'--leaf':'#8a9aff','--gold':'#c8b8ff','--coral':'#6a7ae8','--sky':'#5a6ae8'}}
+];
+function applyBoosts(){
+  var b=Save.data.boosts||{},on=Save.data.boostsOn||{};
+  function isOn(id){return on[id]!==false;}
+  if(b.shield&&isOn('shield'))shieldActive=true;
+  if(b.magnet&&isOn('magnet'))magnetTimer=4;
+  if(b.slow&&isOn('slow'))slowTimer=3;
+  if(b.headstart&&isOn('headstart'))score=5;
+}
+function applyTheme(){
+  var t=Save.data.theme||'forest';
+  var th=THEMES.filter(function(x){return x.id===t;})[0]||THEMES[0];
+  for(var k in th.vars){document.documentElement.style.setProperty(k,th.vars[k]);}
+}
+function renderBoosts(){
+  var bl=$('boostList');bl.innerHTML='';
+  if(!Save.data.boosts)Save.data.boosts={};
+  if(!Save.data.boostsOn)Save.data.boostsOn={};
+  BOOSTS.forEach(function(b){
+    var owned=!!Save.data.boosts[b.id];
+    var on=owned&&(Save.data.boostsOn[b.id]!==false);
+    var row=document.createElement('div');
+    row.className='dailyRow';
+    row.innerHTML='<div class="dTxt"><b>'+b.ic+' '+b.name+'</b><small>'+b.desc+'</small></div>';
+    var btn=document.createElement('button');
+    if(!owned){
+      btn.className='btn small leaf';
+      btn.textContent='💧'+b.price;
+      btn.addEventListener('click',function(){
+        if(Save.data.coins>=b.price){
+          Save.data.coins-=b.price;
+          Save.data.boosts[b.id]=true;
+          Save.data.boostsOn[b.id]=true;
+          Save.save();Audio_.purchase();
+          popToast(b.ic+' '+b.name+' bought & turned ON!');
+          renderBoosts();refreshMenu();
+        }else{popToast('Not enough Sun Drops!');}
+      });
+    }else{
+      btn.className='btn small '+(on?'leaf':'plain');
+      btn.textContent=on?'ON ✓':'OFF';
+      btn.addEventListener('click',function(){
+        Save.data.boostsOn[b.id]=!on;
+        Save.save();Audio_.click();
+        popToast(b.ic+' '+b.name+(Save.data.boostsOn[b.id]?' is now ON!':' is now OFF.'));
+        renderBoosts();
+      });
+    }
+    row.appendChild(btn);
+    bl.appendChild(row);
+  });
+}
+function renderThemes(){
+  var tl=$('themeList');tl.innerHTML='';
+  THEMES.forEach(function(t){
+    var owned=(t.id==='forest')||!!(Save.data.themesOwned&&Save.data.themesOwned[t.id]);
+    var equipped=(Save.data.theme||'forest')===t.id;
+    var row=document.createElement('div');
+    row.className='dailyRow';
+    row.innerHTML='<div class="dTxt"><b><span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:'+t.vars['--leaf']+';border:2px solid var(--ink);margin-right:5px;vertical-align:middle;"></span>'+t.name+'</b><small>'+(equipped?'Currently equipped':(owned?'Tap to equip':'Changes menu & button colors'))+'</small></div>';
+    var btn=document.createElement('button');
+    btn.className='btn small '+(equipped?'plain':(owned?'leaf':'gold'));
+    btn.textContent=equipped?'EQUIPPED':(owned?'EQUIP':('💧'+t.price));
+    btn.addEventListener('click',function(){
+      if(!owned){
+        if(Save.data.coins>=t.price){
+          Save.data.coins-=t.price;
+          if(!Save.data.themesOwned)Save.data.themesOwned={};
+          Save.data.themesOwned[t.id]=true;
+          Save.data.theme=t.id;
+          Save.save();Audio_.purchase();
+          applyTheme();
+          popToast('🎨 '+t.name+' theme equipped!');
+          renderThemes();refreshMenu();
+        }else{popToast('Not enough Sun Drops!');}
+      }else{
+        Save.data.theme=t.id;
+        Save.save();Audio_.click();
+        applyTheme();
+        renderThemes();
+      }
+    });
+    row.appendChild(btn);
+    tl.appendChild(row);
+  });
+}
+if($('tabBoosts')){$('tabBoosts').addEventListener('click',function(){Audio_.click();shopTab='boosts';renderShop();});}
+if($('tabThemes')){$('tabThemes').addEventListener('click',function(){Audio_.click();shopTab='themes';renderShop();});}
+applyTheme();
+
+$('btnSettings').addEventListener('click',function(){Audio_.click();renderSettings();showScreen('scrSettings');});
+$('dailyTeaser').addEventListener('click',function(){Audio_.click();renderDaily();showScreen('scrDaily');});
+
+document.querySelectorAll('[data-close]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    Audio_.click();
+    showScreen('scrMenu');
+    refreshMenu();
+  });
+});
+
+$('pauseBtn').addEventListener('click',function(){
+  if(state!==STATE.PLAYING&&state!==STATE.READY) return;
+  Audio_.click();
+  state=STATE.PAUSED;
+  showScreen('scrPause');
+});
+$('btnResume').addEventListener('click',function(){
+  Audio_.click();
+  state=STATE.PLAYING;
+  showScreen(null);
+});
+$('btnRestartP').addEventListener('click',function(){
+  Audio_.click(); resetRun();
+  state=STATE.READY;
+  showScreen(null);
+  $('readyTap').classList.add('show');
+  refreshHud();
+});
+$('btnQuitP').addEventListener('click',function(){
+  Audio_.click();
+  state=STATE.MENU;
+  $('pauseBtn').classList.remove('show');
+  $('powerHud').innerHTML='';
+  showScreen('scrMenu');
+  refreshMenu();
+});
+$('btnRetryO').addEventListener('click',function(){
+  Audio_.click(); resetRun();
+  state=STATE.READY;
+  $('pauseBtn').classList.add('show');
+  showScreen(null);
+  $('readyTap').classList.add('show');
+  refreshHud();
+});
+$('btnMenuO').addEventListener('click',function(){
+  Audio_.click();
+  state=STATE.MENU;
+  $('pauseBtn').classList.remove('show');
+  showScreen('scrMenu');
+  refreshMenu();
+});
+
+/* Settings */
+function renderSettings(){
+  $('toggleSfx').classList.toggle('on',Save.data.settings.sfx);
+  $('toggleMusic').classList.toggle('on',Save.data.settings.music);
+  $('toggle8bit').classList.toggle('on',Save.data.settings.musicStyle==='8bit');
+  $('toggleShake').classList.toggle('on',Save.data.settings.shake);
+  $('toggleComboChime').classList.toggle('on',Save.data.settings.comboChime);
+  $('toggleAmbience').classList.toggle('on',Save.data.settings.ambience);
+  $('volSlider').value=Save.data.settings.volume;
+}
+$('toggleSfx').addEventListener('click',function(){
+  Save.data.settings.sfx=!Save.data.settings.sfx;
+  Save.save(); renderSettings();
+  if(Save.data.settings.sfx) Audio_.click();
+});
+$('toggle8bit').addEventListener('click',function(){
+  Save.data.settings.musicStyle=(Save.data.settings.musicStyle==='8bit')?'calm':'8bit';
+  Save.save();renderSettings();
+  if(Save.data.settings.music){Audio_.stopMusic();Audio_.startMusic();}
+  Audio_.click();
+});
+$('toggleMusic').addEventListener('click',function(){
+  Save.data.settings.music=!Save.data.settings.music;
+  Save.save(); renderSettings();
+  if(Save.data.settings.music) Audio_.startMusic(); else Audio_.stopMusic();
+});
+$('toggleShake').addEventListener('click',function(){
+  Save.data.settings.shake=!Save.data.settings.shake;
+  Save.save(); renderSettings(); Audio_.click();
+});
+$('toggleComboChime').addEventListener('click',function(){
+  Save.data.settings.comboChime=!Save.data.settings.comboChime;
+  Save.save(); renderSettings();
+  if(Save.data.settings.comboChime){SndFx.comboChime(10);}else{Audio_.click();}
+});
+$('toggleAmbience').addEventListener('click',function(){
+  Save.data.settings.ambience=!Save.data.settings.ambience;
+  Save.save(); renderSettings();
+  if(Save.data.settings.ambience){SndFx.startAmbience();SndFx.chirp();}else{SndFx.stopAmbience();Audio_.click();}
+});
+$('volSlider').addEventListener('input',function(e){
+  Save.data.settings.volume=parseInt(e.target.value,10);
+  Save.save();
+});
+$('btnTutReplay').addEventListener('click',function(){
+  Audio_.click();
+  Save.data.tutDone=false; Save.save();
+  showScreen('scrMenu'); refreshMenu();
+  popToast('🎓 Tutorial will play on next run!');
+});
+$('btnReset').addEventListener('click',function(){
+  if(confirm('Reset ALL progress? This cannot be undone.')){
+    Save.reset();
+    renderSettings(); refreshMenu();
+    popToast('Progress reset');
+  }
+});
+
+/* =========================================================
+   16. SHOP (Skins + Trails)
+========================================================= */
+var shopTab='skins';
+$('tabSkins').addEventListener('click',function(){
+  shopTab='skins'; Audio_.click();
+  $('tabSkins').classList.add('on'); $('tabTrails').classList.remove('on');
+  $('shopSkins').style.display='block'; $('shopTrails').style.display='none';
+  renderShop();
+});
+$('tabTrails').addEventListener('click',function(){
+  shopTab='trails'; Audio_.click();
+  $('tabTrails').classList.add('on'); $('tabSkins').classList.remove('on');
+  $('shopTrails').style.display='block'; $('shopSkins').style.display='none';
+  renderShop();
+});
+function ownedSkinCount(){
+  var n=0; SKINS.forEach(function(s){if(Save.data.owned[s.id])n++;}); return n;
+}
+function ownedTrailCount(){
+  var n=0; TRAILS.forEach(function(t){if(Save.data.ownedTrails[t.id])n++;}); return n;
+}
+function drawSproutOnCanvas(canvas,colors){
+  var c=canvas.getContext('2d');
+  var w=canvas.width=canvas.clientWidth*2;
+  var h=canvas.height=canvas.clientHeight*2;
+  c.clearRect(0,0,w,h);
+  c.save(); c.translate(w/2,h/2+4);
+  drawSprout(c,0,0,0.95,colors,0,0,1);
+  c.restore();
+}
+function drawTrailOnCanvas(canvas,trail){
+  var c=canvas.getContext('2d');
+  var w=canvas.width=canvas.clientWidth*2;
+  var h=canvas.height=canvas.clientHeight*2;
+  c.clearRect(0,0,w,h);
+  if(trail.type==='none'){
+    c.fillStyle='#ccc'; c.font='bold 20px sans-serif';
+    c.textAlign='center'; c.textBaseline='middle';
+    c.fillText('—',w/2,h/2);
+    return;
+  }
+  for(var i=0;i<6;i++){
+    var tx=w*0.7-i*(w*0.1), ty=h/2+Math.sin(i*0.8)*8;
+    c.globalAlpha=1-i*0.14;
+    c.fillStyle=trail.type==='rainbow'?'hsl('+(i*50)+',90%,65%)':trail.color;
+    if(trail.type==='spark'){
+      c.save(); c.translate(tx,ty); c.rotate(i*0.5);
+      c.beginPath();
+      c.moveTo(0,-6); c.lineTo(2,0); c.lineTo(0,6); c.lineTo(-2,0);
+      c.closePath(); c.fill(); c.restore();
+    } else if(trail.type==='petal'||trail.type==='leaf'){
+      c.save(); c.translate(tx,ty); c.rotate(i*0.6);
+      c.beginPath(); c.ellipse(0,0,5,3,0,0,Math.PI*2); c.fill(); c.restore();
+    } else {
+      c.beginPath(); c.arc(tx,ty,3.5-i*0.3,0,Math.PI*2); c.fill();
+    }
+  }
+  c.globalAlpha=1;
+}
+function renderShop(){
+  var _tabs={skins:'tabSkins',trails:'tabTrails',boosts:'tabBoosts',themes:'tabThemes'};
+  var _boxes={skins:'shopSkins',trails:'shopTrails',boosts:'shopBoosts',themes:'shopThemes'};
+  for(var _tk in _tabs){
+    var _te=$(_tabs[_tk]),_be=$(_boxes[_tk]);
+    if(_te)_te.classList.toggle('on',_tk===shopTab);
+    if(_be)_be.style.display=(_tk===shopTab)?'block':'none';
+  }
+  if(shopTab==='boosts')renderBoosts();
+  if(shopTab==='themes')renderThemes();
+  $('shopCoins').textContent=Save.data.coins;
+  if(shopTab==='skins'){
+    var grid=$('skinGrid'); grid.innerHTML='';
+    SKINS.forEach(function(skin){
+      var owned=!!Save.data.owned[skin.id];
+      var equipped=Save.data.equipped===skin.id;
+      var card=document.createElement('div');
+      card.className='skinCard'+(owned?'':' locked')+(equipped?' equipped':'');
+      card.innerHTML='<canvas></canvas><div class="nm">'+skin.name+'</div>'+
+        (owned?('<div class="pr">'+(equipped?'EQUIPPED':'OWNED')+'</div>'):('<div class="pr">💧 '+skin.price+'</div>'))+
+        (equipped?'<span class="tag">ON</span>':'');
+      grid.appendChild(card);
+      var cv2=card.querySelector('canvas');
+      setTimeout(function(){drawSproutOnCanvas(cv2,skin.colors);},0);
+      card.addEventListener('click',function(){
+        Audio_.click();
+        if(owned){
+          Save.data.equipped=skin.id; Save.save(); renderShop();
+        } else if(Save.data.coins>=skin.price){
+          Save.data.coins-=skin.price;
+          Save.data.owned[skin.id]=true;
+          Save.data.equipped=skin.id;
+          Save.save(); Audio_.purchase();
+          checkAchievements(); renderShop(); refreshMenu();
+          popToast('🌱 '+skin.name+' unlocked!');
+        } else {
+          popToast('Not enough Sun Drops!');
+        }
+      });
+    });
+  } else {
+    var tgrid=$('trailGrid'); tgrid.innerHTML='';
+    TRAILS.forEach(function(trail){
+      var owned=!!Save.data.ownedTrails[trail.id];
+      var equipped=Save.data.equippedTrail===trail.id;
+      var card=document.createElement('div');
+      card.className='skinCard'+(owned?'':' locked')+(equipped?' equipped':'');
+      card.innerHTML='<canvas></canvas><div class="nm">'+trail.name+'</div>'+
+        (owned?('<div class="pr">'+(equipped?'EQUIPPED':'OWNED')+'</div>'):('<div class="pr">💧 '+trail.price+'</div>'))+
+        (equipped?'<span class="tag">ON</span>':'');
+      tgrid.appendChild(card);
+      var cv3=card.querySelector('canvas');
+      setTimeout(function(){drawTrailOnCanvas(cv3,trail);},0);
+      card.addEventListener('click',function(){
+        Audio_.click();
+        if(owned){
+          Save.data.equippedTrail=trail.id; Save.save(); renderShop();
+        } else if(Save.data.coins>=trail.price){
+          Save.data.coins-=trail.price;
+          Save.data.ownedTrails[trail.id]=true;
+          Save.data.equippedTrail=trail.id;
+          Save.save(); Audio_.purchase();
+          checkAchievements(); renderShop(); refreshMenu();
+          popToast('✨ '+trail.name+' trail unlocked!');
+        } else {
+          popToast('Not enough Sun Drops!');
+        }
+      });
+    });
+  }
+}
+
+/* =========================================================
+   17. ACHIEVEMENTS
+========================================================= */
+function statsForAch(){
+  return {
+    runsPlayed:Save.data.runsPlayed,
+    bestScore:Save.data.bestScore,
+    totalCoins:Save.data.totalCoins,
+    bestCombo:Save.data.bestCombo,
+    skinsOwned:ownedSkinCount(),
+    trailsOwned:ownedTrailCount(),
+    collCount:Object.keys(Save.data.collection).length,
+    powerupsUsed:Save.data.powerupsUsed||0,
+    dailiesDone:Save.data.dailiesDone||0,
+    level:Save.data.level
+  };
+}
+function checkAchievements(){
+  var s=statsForAch(), changed=false;
+  ACHIEVEMENTS.forEach(function(a){
+    if(!Save.data.achUnlocked[a.id]&&a.check(s)){
+      Save.data.achUnlocked[a.id]=true;
+      changed=true;
+      Audio_.achieve();
+      popToast('🏅 '+a.name+' unlocked!');
+    }
+  });
+  if(changed) Save.save();
+}
+function renderAch(){
+  var list=$('achList'); list.innerHTML='';
+  ACHIEVEMENTS.forEach(function(a){
+    var unlocked=!!Save.data.achUnlocked[a.id];
+    var row=document.createElement('div');
+    row.className='ach'+(unlocked?'':' locked');
+    row.innerHTML='<div class="ic">'+(unlocked?a.ic:'🔒')+'</div><div class="txt"><b>'+a.name+'</b><small>'+a.desc+'</small></div>';
+    list.appendChild(row);
+  });
+}
+
+/* =========================================================
+   18. DAILY MISSIONS
+========================================================= */
+function todayStr(){
+  var d=new Date();
+  return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+}
+function rollDaily(){
+  var td=todayStr();
+  if(Save.data.daily.date===td) return;
+  var seed=0;
+  for(var i=0;i<td.length;i++) seed=(seed*31+td.charCodeAt(i))%999999;
+  var rng=seededRand(seed+7);
+  var pool=DAILY_POOL.slice(), picks=[];
+  while(picks.length<3&&pool.length){
+    picks.push(pool.splice(Math.floor(rng()*pool.length),1)[0]);
+  }
+  var yesterday=Save.data.daily.lastDate;
+  var yd=new Date(); yd.setDate(yd.getDate()-1);
+  var ys=yd.getFullYear()+'-'+(yd.getMonth()+1)+'-'+yd.getDate();
+  Save.data.daily={
+    date:td,
+    missions:picks.map(function(m){return{id:m.id,label:m.label,key:m.key,target:m.target,reward:m.reward,prog:0,done:false,claimed:false};}),
+    streak:(yesterday===ys)?(Save.data.daily.streak||0)+1:1,
+    lastDate:Save.data.daily.lastDate||''
+  };
+  Save.data.dailyProg={bestRunScore:0,bestRunCoins:0,bestRunCombo:0,runsToday:0};
+  Save.save();
+}
+function updateDailyProg(){
+  rollDaily();
+  var dp=Save.data.dailyProg;
+  dp.bestRunScore=Math.max(dp.bestRunScore||0,score);
+  dp.bestRunCoins=Math.max(dp.bestRunCoins||0,runCoins);
+  dp.bestRunCombo=Math.max(dp.bestRunCombo||0,comboCount);
+  dp.runsToday=(dp.runsToday||0)+1;
+  Save.data.daily.missions.forEach(function(m){
+    if(m.done) return;
+    var val=dp[m.key]||0;
+    m.prog=Math.min(m.target,val);
+    if(m.prog>=m.target) m.done=true;
+  });
+  Save.save();
+}
+function renderDaily(){
+  rollDaily();
+  $('dailyStreak').textContent=(Save.data.daily.streak||0)+' days';
+  var list=$('dailyList'); list.innerHTML='';
+  Save.data.daily.missions.forEach(function(m,idx){
+    var row=document.createElement('div');
+    row.className='dailyRow';
+    row.innerHTML='<div class="dTxt"><b>'+m.label+'</b><small>'+Math.min(m.prog,m.target)+' / '+m.target+'</small>'+
+      '<div class="dProg"><i style="width:'+Math.min(100,m.prog/m.target*100)+'%"></i></div></div>';
+    var btn=document.createElement('button');
+    btn.className='btn small '+(m.claimed?'plain':m.done?'gold':'plain');
+    btn.disabled=m.claimed||!m.done;
+    btn.textContent=m.claimed?'✓ Done':m.done?'Claim 💧'+m.reward:'💧'+m.reward;
+    btn.addEventListener('click',function(){
+      if(m.claimed||!m.done) return;
+      m.claimed=true;
+      Save.data.coins+=m.reward;
+      Save.data.dailiesDone=(Save.data.dailiesDone||0)+1;
+      Save.save();
+      Audio_.purchase();
+      popToast('💧 +'+m.reward+' Sun Coins claimed!');
+      checkAchievements();
+      renderDaily(); refreshMenu();
+    });
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+
+/* =========================================================
+   19. COLLECTION
+========================================================= */
+function renderColl(){
+  var grid=$('collGrid'); grid.innerHTML='';
+  var count=Object.keys(Save.data.collection).length;
+  $('collCount').textContent=count+' / '+COLLECTION.length;
+  COLLECTION.forEach(function(c){
+    var found=!!Save.data.collection[c.id];
+    var card=document.createElement('div');
+    card.className='collCard'+(found?'':' undis');
+    card.innerHTML='<div class="cIc">'+(found?c.ic:'❓')+'</div>'+
+      '<div class="cNm">'+(found?c.name:'???')+'</div>'+
+      '<div class="cBi">'+BIOMES[c.biome].name+'</div>';
+    grid.appendChild(card);
+  });
+}
+
+/* =========================================================
+   20. BOOT
+========================================================= */
+/* ===== 🛡️ ANTI-BUG / ANTI-LAG GUARD ===== */
+window.addEventListener('error',function(e){try{console.warn('Bloombound recovered:',e.message);}catch(_){}});
+setInterval(function(){
+  try{
+    if(typeof particles!=='undefined'&&particles.length>250)particles.splice(0,particles.length-250);
+    if(typeof weatherParts!=='undefined'&&weatherParts.length>120)weatherParts.splice(0,weatherParts.length-120);
+    if(typeof coinsArr!=='undefined'&&coinsArr.length>60)coinsArr.splice(0,coinsArr.length-60);
+    if(typeof obstacles!=='undefined'&&obstacles.length>20)obstacles.splice(0,obstacles.length-20);
+    if(typeof floatingTexts!=='undefined'&&floatingTexts.length>30)floatingTexts.splice(0,floatingTexts.length-30);
+  }catch(_){}
+},1500);
+/* 🍯 add recipe step to tutorial */
+if(typeof TUT_STEPS!=='undefined'){
+  TUT_STEPS.push({ic:'🍯',title:"WITCH'S CAULDRON",text:'Earn essences from your runs, then combine them in the Cauldron for coins and XP!'});
+}
+
+/* ===== 🔔🌊 NEW SOUNDS: Combo Chime + Nature Ambience ===== */
+var SndFx={ctx:null,ambTimer:null,
+  ac:function(){if(!this.ctx){try{this.ctx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}return this.ctx;},
+  tone:function(f,dur,type,vol,delay){
+    var c=this.ac();if(!c)return;
+    var t0=c.currentTime+(delay||0);
+    var o=c.createOscillator(),g=c.createGain();
+    o.type=type||'sine';o.frequency.value=f;
+    var v=(vol||0.1)*(Save.data.settings.volume/100);
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(v,0.0001),t0+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+    o.connect(g);g.connect(c.destination);o.start(t0);o.stop(t0+dur+0.05);
+  },
+  comboChime:function(n){
+    var b=400+n*15;
+    this.tone(b,0.15,'triangle',0.16);
+    this.tone(b*1.25,0.15,'triangle',0.16,0.08);
+    this.tone(b*1.5,0.3,'triangle',0.2,0.16);
+  },
+  chirp:function(){
+    var c=this.ac();if(!c)return;
+    var t0=c.currentTime,f=1800+Math.random()*1400;
+    var o=c.createOscillator(),g=c.createGain();
+    o.type='sine';
+    o.frequency.setValueAtTime(f,t0);
+    o.frequency.exponentialRampToValueAtTime(f*1.5,t0+0.07);
+    o.frequency.exponentialRampToValueAtTime(f*0.8,t0+0.16);
+    var v=0.05*(Save.data.settings.volume/100);
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(v,t0+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+0.18);
+    o.connect(g);g.connect(c.destination);o.start(t0);o.stop(t0+0.2);
+  },
+  windChime:function(){
+    var notes=[523.25,587.33,659.25,783.99,880];
+    var n=notes[Math.floor(Math.random()*notes.length)];
+    this.tone(n,0.6,'sine',0.05);
+    this.tone(n*2,0.5,'sine',0.02,0.05);
+  },
+  startAmbience:function(){
+    this.stopAmbience();
+    var self=this;
+    this.ambTimer=setInterval(function(){
+      if(!Save.data.settings.ambience)return;
+      if(Math.random()<0.55)self.chirp();
+      if(Math.random()<0.2)self.windChime();
+    },1800);
+  },
+  stopAmbience:function(){if(this.ambTimer){clearInterval(this.ambTimer);this.ambTimer=null;}}
+};
+
+function boot(){
+  resize();
+  resetRun();
+  refreshMenu();
+  showScreen('scrMenu');
+  requestAnimationFrame(function(ts){lastFrame=ts;requestAnimationFrame(loop);});
+}
+document.addEventListener('pointerdown',function firstGesture(){
+  Audio_.unlock();
+  Audio_.startMusic();
+  SndFx.startAmbience();
+  document.removeEventListener('pointerdown',firstGesture);
+});
+boot();
+
+})();
+</script>
+</body>
+</html>
